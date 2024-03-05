@@ -23,7 +23,8 @@ plot_growthData <- function(dat, fileName = NULL) {
                fill = "grey", colour = NA, xmin = -Inf, xmax = Inf,
                ymin = -Inf,ymax = Inf) +
     scale_x_continuous(breaks = c(0, 10, 20)) +
-    scale_y_continuous(breaks = c(0, 0.5, 1), limits = c(-0.01, 1)) +
+    scale_y_continuous(breaks = c(0, 0.5, 1), 
+                       limits = c(-0.01, round(max(dat_plot$blankedOD) + 0.05, 1))) +
     facet_grid(rows = vars(Strain), cols = vars(RIFconc)) +
     labs(x = "Time (hours)", y = "Optical Densiy (A600)") +
     theme_bw()

@@ -5,13 +5,13 @@ library(ALJEbinf)
 
 source("./R/plotting.R")
 
-projects <- c("A_baylyi_Maddie", "L_plantarum_Edward")
+projects <- c("E_coli_Alicia", "A_baylyi_Maddie", "L_plantarum_Edward")
 dat <- vector(mode = "list", length = length(projects))
 names(dat) <- projects
 
 for(i in 1:length(projects)) {
   cat("--------------------------------------------------------\n")
-  cat(paste0("--- Working on project ", projects[i], "\n"))
+  cat(paste0(">>> Working on project ", projects[i], "\n"))
   cat("--------------------------------------------------------\n\n")
   # wrangling and qc:
   dat[[i]] <- processODData(specPath = paste0("./data/", projects[i], "/specs/"),
