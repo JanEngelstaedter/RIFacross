@@ -5,12 +5,22 @@ library(ALJEbinf)
 
 source("./R/plotting.R")
 
-# wrangling and qc:
-data_Maddie <- processODData(specPath = "./data/A_baylyi_Maddie/specs/",
-                             dataPath = "./data/A_baylyi_Maddie/OD_raw") |>
-  blankODs(groups = "RIFconc") |>
-  mutate(RIFconc = as.double(RIFconc))
-qcODData(data_Maddie, path = "./output/QC/A_baylyi_Maddie/", silent = FALSE)
+projects <- c("A_baylyi_Maddie", "L_plantarum_Edward")
+dat <- vector(mode = "list", length = length(projects))
+names(dat) <- projects
 
-# plotting:
-plot_growthData(data_Maddie, "./plots/A_baylyi_Maddie_growthcurves.pdf")
+for(i in 1:length(projects)) {
+  cat("--------------------------------------------------------\n")
+  cat(paste0("--- Working on project ", projects[i], "\n"))
+  cat("--------------------------------------------------------\n\n")
+  # wrangling and qc:
+  dat[[i]] <- processODData(specPath = paste0("./data/", projects[i], "/specs/"),
+                            dataPath = paste0("./data/", projects[i], "/OD_raw")) |>
+    blankODs(groups = "RIFconc") |>
+    mutate(RIFconc = as.double(RIFconc))
+  qcODData(dat[[i]], path = paste0("./output/QC/", projects[i], "/"))
+  
+  # plotting:
+  plot_growthData(dat[[i]], paste0("./plots/", projects[i], "_growthcurves.pdf"))
+  cat("\n")
+}
