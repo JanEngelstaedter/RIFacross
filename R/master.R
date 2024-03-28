@@ -17,7 +17,7 @@ for(i in 1:length(projects)) {
   dat[[i]] <- processODData(specPath = paste0("./data/", projects[i], "/specs/"),
                             dataPath = paste0("./data/", projects[i], "/OD_raw"))
   if(projects[i] == "A_baylyi_Ian") {
-    dat[[i]] <- rename(dat[[i]], RIFconc = Concentration)  
+    dat[[i]] <- dplyr::rename(dat[[i]], RIFconc = Concentration)  
   }
   dat[[i]] <- dat[[i]] |>
     blankODs(groups = "RIFconc") |>
@@ -30,6 +30,3 @@ for(i in 1:length(projects)) {
   plot_growthData(dat[[i]], paste0("./plots/", projects[i], "_growthcurves.pdf"))
   cat("\n")
 }
-
-
-dat_
