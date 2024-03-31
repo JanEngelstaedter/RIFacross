@@ -2,6 +2,8 @@ library(tidyverse)
 library(grow96)
 library(Biostrings)
 library(ALJEbinf)
+library(googlesheets4)
+
 
 source("./R/plotting.R")
 
@@ -34,7 +36,18 @@ for(i in 1:nrow(projects)) {
 }
 
 save(analysis, file = "./output/analysis.RData")
+load("./output/analysis.RData")
 
+parms <- NULL
 # turn analysis list into single data frame:
+for(i in 1:nrow(projects)) {
+  analysis[[i]]$pars$Project_ID <- projects$Project_ID[i]
+  analysis[[i]]$pars$Species <- projects$Species[i]
+  parms <- rbind(parms, analysis[[i]]$pars)
+}
 
+parms <- parms |>
+  select(Project_ID, Species, everything())
 
+# read in file with identities of mutations:
+muts <- read_csv("./data/Genetic_data/muts.csv") 

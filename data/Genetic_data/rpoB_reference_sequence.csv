@@ -1,0 +1,4 @@
+Species,Strain,RefStrain,Gene,Assembly_ID,FASTA_name,Origen,NCBI Reference sequence,Comments
+Acinetobacter baylyi,AB3,FALSE,rpoB,not provided,rpoB_Acinetobacter_baylyi_AB3,in-house assembly,not provided,
+Escherichia coli,MG1655,TRUE,rpoB,ASM584v2,rpoB_Escherichia_coli_MG1655,"NC_000913.3 Escherichia coli str. K-12 substr. MG1655, complete genome",NC_000913.3,
+Lactiplantibacillus plantarum,SRCM100442,TRUE,rpoB,ASM326940v1,rpoB_Lactiplantibacillus_plantarum_SRCM100442,"NZ_CP028221.1 Lactiplantibacillus plantarum strain SRCM100442 chromosome, complete genome",NZ_CP028221.1,

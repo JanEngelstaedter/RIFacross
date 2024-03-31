@@ -1,5 +1,5 @@
-Project_ID,Species
-E_coli_Alicia,Escherichia coli
-A_baylyi_Maddie,Acinetobacter baylyi
-A_baylyi_Ian,Acinetobacter baylyi
-L_plantarum_Edward,Lactiplantibacillus plantarum
+Project_ID,Species,Reference
+E_coli_Alicia,Escherichia coli,rpoB_Escherichia_coli_MG1655
+A_baylyi_Maddie,Acinetobacter baylyi,rpoB_Acinetobacter_baylyi_AB3
+A_baylyi_Ian,Acinetobacter baylyi,rpoB_Acinetobacter_baylyi_AB3
+L_plantarum_Edward,Lactiplantibacillus plantarum,rpoB_Lactiplantibacillus_plantarum_SRCM100442
