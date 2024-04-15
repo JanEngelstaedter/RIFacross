@@ -50,4 +50,13 @@ parms <- parms |>
   select(Project_ID, Species, everything())
 
 # read in file with identities of mutations:
-muts <- read_csv("./data/Genetic_data/muts.csv") 
+muts <- read_csv("./data/Genetic_data/muts.csv")
+
+# attach rpoB mutations to growth parameters:
+parms <- parms |>
+  left_join(muts, by = join_by(Species, Strain == Genotype)) |>
+  select(Project_ID, Species, Strain,
+         Nt_mut_name, Nt_mut_name_Ecoli, AA_mut_name, AA_mut_name_Ecoli, 
+         RIFconc, Replicate,
+         mumax, r2, maxOD) |>
+  arrange(Species, Strain, RIFconc, Replicate)
