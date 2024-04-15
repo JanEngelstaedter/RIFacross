@@ -19,7 +19,7 @@ for(i in 1:nrow(projects)) {
   # wrangling:
   dat[[i]] <- processODData(specPath = paste0("./data/", projects$Project_ID[i], "/specs/"),
                             dataPath = paste0("./data/", projects$Project_ID[i], "/OD_raw"))
-  if(projects[i] == "A_baylyi_Ian") {
+  if(projects$Project_ID[i] == "A_baylyi_Ian") {
     dat[[i]] <- dplyr::rename(dat[[i]], RIFconc = Concentration)  
   }
   dat[[i]] <- dat[[i]] |>
@@ -35,7 +35,7 @@ for(i in 1:nrow(projects)) {
   cat("\n")
 }
 
-save(analysis, file = "./output/analysis.RData")
+#save(analysis, file = "./output/analysis.RData")
 load("./output/analysis.RData")
 
 parms <- NULL
