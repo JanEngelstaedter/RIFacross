@@ -70,5 +70,20 @@ parms <- parms |>
          mumax, r2, maxOD) |>
   arrange(Species, Strain, RIFconc, Replicate)
 
-MICs <- parms |>
-  distinct(Species, Strain)
+
+parms$AA_mut_name_Ecoli <- ifelse(parms$Species == "Lactiplantibacillus plantarum" & parms$Strain != "Wild Type",
+                                 parms$Strain,
+                                 parms$AA_mut_name_Ecoli)
+
+parms$AA_mut_name_Ecoli <- case_when(parms$Species == "Lactiplantibacillus plantarum" & parms$Strain != "Wild Type" 
+                                    ~paste0("rpoB_", parms$AA_mut_name_Ecoli), TRUE~parms$AA_mut_name_Ecoli)
+
+parms$AA_mut_name_Ecoli <- ifelse(parms$Strain %in% c("MG1655", "WT", "AB3", "Wild Type"), "WT", parms$AA_mut_name_Ecoli)
+
+#max growth rate in absence of antibiotics
+mean <- parms  %>% filter(RIFconc==0) %>% 
+  group_by(Species, AA_mut_name_Ecoli) %>% 
+  summarise(mean_mumax = mean(mumax, na.rm = TRUE), 
+            mean_SD = sd(mumax, na.rm = TRUE))  %>% 
+  ungroup()
+
