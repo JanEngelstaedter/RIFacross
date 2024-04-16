@@ -112,5 +112,5 @@ MICs_overlap <- MICs |> group_by(AA_mut_name_Ecoli) |>
   filter(n() > 1) |>
   arrange(AA_mut_name_Ecoli)
 
-
-parms |> filter(is.na(maxOD)) |> View()
+write_csv(parms, "./output/growth_parameters.csv")
+write_csv(MICs, "./output/MICs.csv")
