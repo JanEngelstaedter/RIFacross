@@ -4,8 +4,8 @@ library(Biostrings)
 library(ALJEbinf)
 library(googlesheets4)
 
-
 source("./R/plotting.R")
+source("./R/util.R")
 
 projects <- read_csv("./data/global_key.csv")
 dat <- vector(mode = "list", length = nrow(projects))
