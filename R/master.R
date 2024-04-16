@@ -82,8 +82,10 @@ parms <- parms |>
 
 #max growth rate in absence of antibiotics
 mean <- parms  %>% filter(RIFconc==0) %>% 
-  group_by(Species, AA_mut_name_Ecoli) %>% 
+  group_by(Species,Strain, AA_mut_name_Ecoli) %>% 
   summarise(mean_mumax = mean(mumax, na.rm = TRUE), 
-            mean_SD = sd(mumax, na.rm = TRUE))  %>% 
-  ungroup()
+            mean_SD = sd(mumax, na.rm = TRUE), 
+            observations = n())  %>% 
+    ungroup()
+
 
