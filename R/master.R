@@ -26,6 +26,21 @@ for(i in 1:nrow(projects)) {
     blankODs(groups = "RIFconc") |>
     mutate(RIFconc = as.double(RIFconc)) 
   
+  # manual blanking of low_2 plates in Edward's project
+  # (in these plates, no RIF was added to BLANK wells on the border so they can't be used)
+  if (projects$Project_ID[i] == "L_plantarum_Edward") {
+    meanBlankOD_low2 <- dat[[i]] |>
+      filter(WellType == "BLANK") |>
+      filter(Plate == "Mutant_L.plantarum_RIF_MIC_low_2") |>
+      pull(OD) |>
+      mean()
+    
+    dat[[i]] <- dat[[i]] |>
+      mutate(blankedOD = if_else(Plate == "Mutant_L.plantarum_RIF_MIC_low_2",
+                                 OD - meanBlankOD_low2,
+                                 blankedOD))
+  }
+  
   # quality control:
   qcODData(dat[[i]], path = paste0("./output/QC/", projects$Project_ID[i], "/"))
   
@@ -92,3 +107,10 @@ mean <- parms  %>% filter(RIFconc==0) %>%
 MICs <- parms |>
   group_by(across(Species:AA_mut_name_Ecoli)) |>
   summarise(MIC = getMIC(RIFconc, maxOD))
+
+MICs_overlap <- MICs |> group_by(AA_mut_name_Ecoli) |>
+  filter(n() > 1) |>
+  arrange(AA_mut_name_Ecoli)
+
+
+parms |> filter(is.na(maxOD)) |> View()
