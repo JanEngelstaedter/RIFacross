@@ -87,3 +87,6 @@ mean <- parms  %>% filter(RIFconc==0) %>%
             mean_SD = sd(mumax, na.rm = TRUE))  %>% 
   ungroup()
 
+MICs <- parms |>
+  group_by(across(Species:AA_mut_name_Ecoli)) |>
+  summarise(MIC = getMIC(RIFconc, maxOD))
