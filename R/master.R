@@ -46,17 +46,29 @@ for(i in 1:nrow(projects)) {
   parms <- rbind(parms, analysis[[i]]$pars)
 }
 
-parms <- parms |>
-  select(Project_ID, Species, everything())
-
-# read in file with identities of mutations:
+# read in files with identities of mutations:
 muts <- read_csv("./data/Genetic_data/muts.csv")
+muts_Edward <- read_csv("./data/Genetic_data/Edward_mutants.csv") |>
+  filter(!is.na(Strain_Name)) |>
+  mutate(New_name = str_replace(AA_mut_name_Ecoli, "rpoB_", ""))
+muts_Edward_lookup <- muts_Edward$Strain_Name
+names(muts_Edward_lookup) <- muts_Edward$New_name
 
 # attach rpoB mutations to growth parameters:
 parms <- parms |>
+  # standardise names for suseptible wildtype:
+  mutate(Strain = ifelse(Strain %in% c("AB3", "MG1655", "Wild Type"), 
+                         "WT", Strain)) |>
+  # fit Edward's strain names:
+  mutate(Strain = ifelse((Project_ID == "L_plantarum_Edward") & (Strain != "WT"), 
+                         muts_Edward_lookup[Strain],
+                         Strain)) |>
   left_join(muts, by = join_by(Species, Strain == Genotype)) |>
   select(Project_ID, Species, Strain,
          Nt_mut_name, Nt_mut_name_Ecoli, AA_mut_name, AA_mut_name_Ecoli, 
          RIFconc, Replicate,
          mumax, r2, maxOD) |>
   arrange(Species, Strain, RIFconc, Replicate)
+
+MICs <- parms |>
+  distinct(Species, Strain)
