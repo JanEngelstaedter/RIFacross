@@ -62,7 +62,7 @@ getMIC <- function(conc, maxOD, ICx = 90) {
   # calculate mean maxODs:
   result <- data.frame(conc = conc, maxOD = maxOD) |>
     group_by(conc) |>
-    summarise(maxOD = mean(maxOD))
+    summarise(maxOD = mean(maxOD, na.rm = TRUE))
   
   # max OD at drug concentration zero:
   ODmax0 <- result |>
@@ -74,7 +74,7 @@ getMIC <- function(conc, maxOD, ICx = 90) {
     mutate(relativeOD = maxOD/ODmax0) |>
     filter(relativeOD < (1 - ICx/100)) |>
     pull(conc) |> 
-    min()
+    min(na.rm = TRUE)
     
   return(result)
 }
