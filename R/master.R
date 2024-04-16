@@ -59,7 +59,7 @@ parms <- parms |>
   # standardise names for suseptible wildtype:
   mutate(Strain = ifelse(Strain %in% c("AB3", "MG1655", "Wild Type"), 
                          "WT", Strain)) |>
-  # fit Edward's strain names:
+  # fix Edward's strain names:
   mutate(Strain = ifelse((Project_ID == "L_plantarum_Edward") & (Strain != "WT"), 
                          muts_Edward_lookup[Strain],
                          Strain)) |>
@@ -70,15 +70,15 @@ parms <- parms |>
          mumax, r2, maxOD) |>
   arrange(Species, Strain, RIFconc, Replicate)
 
-
-parms$AA_mut_name_Ecoli <- ifelse(parms$Species == "Lactiplantibacillus plantarum" & parms$Strain != "Wild Type",
-                                 parms$Strain,
-                                 parms$AA_mut_name_Ecoli)
-
-parms$AA_mut_name_Ecoli <- case_when(parms$Species == "Lactiplantibacillus plantarum" & parms$Strain != "Wild Type" 
-                                    ~paste0("rpoB_", parms$AA_mut_name_Ecoli), TRUE~parms$AA_mut_name_Ecoli)
-
-parms$AA_mut_name_Ecoli <- ifelse(parms$Strain %in% c("MG1655", "WT", "AB3", "Wild Type"), "WT", parms$AA_mut_name_Ecoli)
+# Alicia, your code below shouldn't be necessary anymore, so I've commented it out:
+# parms$AA_mut_name_Ecoli <- ifelse(parms$Species == "Lactiplantibacillus plantarum" & parms$Strain != "Wild Type",
+#                                  parms$Strain,
+#                                  parms$AA_mut_name_Ecoli)
+# 
+# parms$AA_mut_name_Ecoli <- case_when(parms$Species == "Lactiplantibacillus plantarum" & parms$Strain != "Wild Type" 
+#                                     ~paste0("rpoB_", parms$AA_mut_name_Ecoli), TRUE~parms$AA_mut_name_Ecoli)
+# 
+# parms$AA_mut_name_Ecoli <- ifelse(parms$Strain %in% c("MG1655", "WT", "AB3", "Wild Type"), "WT", parms$AA_mut_name_Ecoli)
 
 #max growth rate in absence of antibiotics
 mean <- parms  %>% filter(RIFconc==0) %>% 
