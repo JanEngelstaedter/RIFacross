@@ -3,6 +3,7 @@ library(grow96)
 library(Biostrings)
 library(ALJEbinf)
 library(googlesheets4)
+library(UpSetR)
 
 source("./R/plotting.R")
 source("./R/util.R")
@@ -108,9 +109,17 @@ MICs <- parms |>
   group_by(across(Species:AA_mut_name_Ecoli)) |>
   summarise(MIC = getMIC(RIFconc, maxOD))
 
+write_csv(parms, "./output/growth_parameters.csv")
+write_csv(MICs, "./output/MICs.csv")
+
+
 MICs_overlap <- MICs |> group_by(AA_mut_name_Ecoli) |>
   filter(n() > 1) |>
   arrange(AA_mut_name_Ecoli)
 
-write_csv(parms, "./output/growth_parameters.csv")
-write_csv(MICs, "./output/MICs.csv")
+growth_parameters |>
+  select(Species, AA_mut_name_Ecoli) |>
+  distinct() |>
+  group_by(AA_mut_name_Ecoli) |>
+  arrange(AA_mut_name_Ecoli) |>
+  View()
