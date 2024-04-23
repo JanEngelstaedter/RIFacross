@@ -97,10 +97,12 @@ parms <- parms |>
 # parms$AA_mut_name_Ecoli <- ifelse(parms$Strain %in% c("MG1655", "WT", "AB3", "Wild Type"), "WT", parms$AA_mut_name_Ecoli)
 
 #max growth rate in absence of antibiotics
-mean <- parms  %>% filter(RIFconc==0) %>% 
+means <- parms  %>% filter(RIFconc==0) %>% 
   group_by(Species,Strain, AA_mut_name_Ecoli) %>% 
   summarise(mean_mumax = mean(mumax, na.rm = TRUE), 
-            mean_SD = sd(mumax, na.rm = TRUE), 
+            SD_mumax = sd(mumax, na.rm = TRUE),
+            mean_maxOD = mean(maxOD, na.rm = TRUE),
+            SD_maxOD = sd(maxOD, na.rm = TRUE),
             observations = n())  %>% 
     ungroup()
 
@@ -113,9 +115,31 @@ write_csv(parms, "./output/growth_parameters.csv")
 write_csv(MICs, "./output/MICs.csv")
 
 
-MICs_overlap <- MICs |> group_by(AA_mut_name_Ecoli) |>
-  filter(n() > 1) |>
-  arrange(AA_mut_name_Ecoli)
+# assessing overlaps between mutations:
+overlaps <- muts |>
+  arrange(AA_pos_Ecoli) |>
+  select(Species, Genotype, AA_mut_name_Ecoli) |>
+  dplyr::rename(Strain = Genotype) |>
+  filter(!is.na(AA_mut_name_Ecoli)) |>
+  filter(!(Species == "Acinetobacter baylyi" & (Strain %in% c("RM10", "RM15")))) |>
+  left_join(means, by = join_by(Species, Strain, AA_mut_name_Ecoli)) |>
+  left_join(MICs, by = join_by(Species, Strain, AA_mut_name_Ecoli))|>
+  mutate(Phenotyped = !is.na(mean_maxOD)) |>
+  select(AA_mut_name_Ecoli, Species, Strain, Phenotyped) |>
+  pivot_wider(names_from = Species, values_from = c(Strain, Phenotyped))
+
+# more phenotyping needed for the following:
+need_phenotyping <- overlaps |>
+  mutate(n_mutants = 3 - (is.na(`Strain_Acinetobacter baylyi`) + is.na(`Strain_Escherichia coli`) + is.na(`Strain_Lactiplantibacillus plantarum`))) |>
+  mutate(n_phenotyped = (!is.na(`Phenotyped_Acinetobacter baylyi`) & `Phenotyped_Acinetobacter baylyi`) +
+                        (!is.na(`Phenotyped_Escherichia coli`) & `Phenotyped_Escherichia coli`) +
+                        (!is.na(`Phenotyped_Lactiplantibacillus plantarum`) & `Phenotyped_Lactiplantibacillus plantarum`)) |>
+  filter(n_mutants > 1) |>
+  filter(n_mutants > n_phenotyped)
+
+# MICs_overlap <- MICs |> group_by(AA_mut_name_Ecoli) |>
+#   filter(n() > 1) |>
+#   arrange(AA_mut_name_Ecoli)
 
 growth_parameters |>
   select(Species, AA_mut_name_Ecoli) |>
