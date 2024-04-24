@@ -1,3 +1,6 @@
+# Step 0: Loading all libraries and scripts             ----
+# __________________________________________________________
+
 library(tidyverse)
 library(grow96)
 library(Biostrings)
@@ -7,6 +10,11 @@ library(UpSetR)
 
 source("./R/plotting.R")
 source("./R/util.R")
+
+
+
+# Step 1: Loading and processing all data               ----
+# __________________________________________________________
 
 projects <- read_csv("./data/global_key.csv")
 dat <- vector(mode = "list", length = nrow(projects))
@@ -50,8 +58,14 @@ for(i in 1:nrow(projects)) {
   analysis[[i]] <- analyseODData(dat[[i]])
   cat("\n")
 }
+save(analysis, file = "./output/analysis.RData")
 
-#save(analysis, file = "./output/analysis.RData")
+#empty working environment to keep everything clean:
+rm.all()
+
+# Step 2: Add genetic information to data               ----
+# __________________________________________________________
+
 load("./output/analysis.RData")
 
 parms <- NULL
@@ -86,15 +100,15 @@ parms <- parms |>
          mumax, r2, maxOD) |>
   arrange(Species, Strain, RIFconc, Replicate)
 
-# Alicia, your code below shouldn't be necessary anymore, so I've commented it out:
-# parms$AA_mut_name_Ecoli <- ifelse(parms$Species == "Lactiplantibacillus plantarum" & parms$Strain != "Wild Type",
-#                                  parms$Strain,
-#                                  parms$AA_mut_name_Ecoli)
-# 
-# parms$AA_mut_name_Ecoli <- case_when(parms$Species == "Lactiplantibacillus plantarum" & parms$Strain != "Wild Type" 
-#                                     ~paste0("rpoB_", parms$AA_mut_name_Ecoli), TRUE~parms$AA_mut_name_Ecoli)
-# 
-# parms$AA_mut_name_Ecoli <- ifelse(parms$Strain %in% c("MG1655", "WT", "AB3", "Wild Type"), "WT", parms$AA_mut_name_Ecoli)
+write_csv(parms, "./output/growth_parameters.csv")
+
+#empty working environment to keep everything clean:
+rm.all()
+
+# Step 3: Analysing data                                ----
+# __________________________________________________________
+
+parms <- read_csv("./output/growth_parameters.csv")
 
 #max growth rate in absence of antibiotics
 means <- parms  %>% filter(RIFconc==0) %>% 
@@ -106,14 +120,11 @@ means <- parms  %>% filter(RIFconc==0) %>%
             observations = n())  %>% 
     ungroup()
 
-
 MICs <- parms |>
   group_by(across(Species:AA_mut_name_Ecoli)) |>
   summarise(MIC = getMIC(RIFconc, maxOD))
 
-write_csv(parms, "./output/growth_parameters.csv")
 write_csv(MICs, "./output/MICs.csv")
-
 
 # assessing overlaps between mutations:
 overlaps <- muts |>
