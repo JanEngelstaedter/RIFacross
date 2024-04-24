@@ -7,11 +7,10 @@ library(Biostrings)
 library(ALJEbinf)
 library(googlesheets4)
 library(UpSetR)
+library(varhandle)
 
 source("./R/plotting.R")
 source("./R/util.R")
-
-
 
 # Step 1: Loading and processing all data               ----
 # __________________________________________________________
