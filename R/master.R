@@ -158,49 +158,58 @@ growth_parameters |>
   arrange(AA_mut_name_Ecoli) |>
   View()
 
-# graph parameters 
+
+#Make parameters relative to species WT 
+WT <- means %>% filter (Strain=="WT")
+WT_mumax <- setNames(WT$mean_mumax,WT$Species)
+WT_maxOD <- setNames(WT$mean_maxOD, WT$Species)
+means <- means %>% mutate(relative_mumax=mean_mumax/WT_mumax[Species]) %>% 
+  mutate(relative_maxOD=mean_maxOD/WT_maxOD[Species])
+
+
+#graph relative parameters 
 test <- means %>%  filter(Strain != "R21") %>% 
   filter(Strain!= "RM15")
-test = subset(test, select = -c(Strain, observations))
+test = subset(test, select = c(Species, AA_mut_name_Ecoli, relative_mumax, relative_maxOD))
 
 
-meanwide <- pivot_wider(test, names_from = Species, values_from = c(mean_mumax, SD_mumax, mean_maxOD, SD_maxOD))
+meanwide <- pivot_wider(test, names_from = Species, values_from = c(relative_mumax, relative_maxOD))
 names(meanwide) <- make.names(names(meanwide), unique = TRUE)
 
 {#E coli v A baylyi parameter plots
 
-ecab_mu<- ggplot(meanwide, aes(x=mean_mumax_Escherichia.coli, y=mean_mumax_Acinetobacter.baylyi, label=AA_mut_name_Ecoli))+
+ecab_mu<- ggplot(meanwide, aes(x=relative_mumax_Escherichia.coli, y=relative_mumax_Acinetobacter.baylyi, label=AA_mut_name_Ecoli))+
 geom_point() +
 geom_text(hjust=0, vjust=0)+
 labs(title = "E.coli v A.baylyi mumax")
 
 
-ecab_OD <- ggplot(meanwide, aes(x=mean_maxOD_Escherichia.coli, y=mean_maxOD_Acinetobacter.baylyi, label=AA_mut_name_Ecoli))+
+ecab_OD <- ggplot(meanwide, aes(x=relative_maxOD_Escherichia.coli, y=relative_maxOD_Acinetobacter.baylyi, label=AA_mut_name_Ecoli))+
 geom_point()+
 geom_text(hjust=0, vjust=0)+
 labs(title = "E.coli v A.baylyi maxOD")
 
 
 #L.plantarum v A.baylyi
-lpab_mu <- ggplot(meanwide, aes(x=mean_mumax_Lactiplantibacillus.plantarum, y=mean_mumax_Acinetobacter.baylyi, label=AA_mut_name_Ecoli))+
+lpab_mu <- ggplot(meanwide, aes(x=relative_mumax_Lactiplantibacillus.plantarum, y=relative_mumax_Acinetobacter.baylyi, label=AA_mut_name_Ecoli))+
 geom_point() +
 geom_text(hjust=0, vjust=0)+
 labs(title = "L.plantarum v A.baylyi mumax")
 
-lpab_OD <- ggplot(meanwide, aes(x=mean_maxOD_Lactiplantibacillus.plantarum, y=mean_maxOD_Acinetobacter.baylyi, label=AA_mut_name_Ecoli))+
+lpab_OD <- ggplot(meanwide, aes(x=relative_maxOD_Lactiplantibacillus.plantarum, y=relative_maxOD_Acinetobacter.baylyi, label=AA_mut_name_Ecoli))+
 geom_point() +
 geom_text(hjust=0, vjust=0)+
 labs(title = "L.plantarum v A.baylyi maxOD")
 
 #E.coli v L.plantarum 
 
-eclp_mu<- ggplot(meanwide, aes(x=mean_mumax_Escherichia.coli, y=mean_mumax_Lactiplantibacillus.plantarum, label=AA_mut_name_Ecoli))+
+eclp_mu<- ggplot(meanwide, aes(x=relative_mumax_Escherichia.coli, y=relative_mumax_Lactiplantibacillus.plantarum, label=AA_mut_name_Ecoli))+
 geom_point() +
 geom_text(hjust=0, vjust=0)+
 labs(title = "E.coli v L.planturum mumax")
 
 
-eclp_OD <- ggplot(meanwide, aes(x=mean_maxOD_Escherichia.coli, y=mean_maxOD_Lactiplantibacillus.plantarum, label=AA_mut_name_Ecoli))+
+eclp_OD <- ggplot(meanwide, aes(x=relative_maxOD_Escherichia.coli, y=relative_maxOD_Lactiplantibacillus.plantarum, label=AA_mut_name_Ecoli))+
 geom_point()+
 geom_text(hjust=0, vjust=0)+
 labs(title = "E.coli v L.plantarum maxOD")
