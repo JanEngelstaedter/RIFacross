@@ -65,6 +65,7 @@ rm.all()
 # Step 2: Add genetic information to data               ----
 # __________________________________________________________
 
+projects <- read_csv("./data/global_key.csv")
 load("./output/analysis.RData")
 
 parms <- NULL
@@ -131,7 +132,7 @@ overlaps <- muts |>
   select(Species, Genotype, AA_mut_name_Ecoli) |>
   dplyr::rename(Strain = Genotype) |>
   filter(!is.na(AA_mut_name_Ecoli)) |>
-  filter(!(Species == "Acinetobacter baylyi" & (Strain %in% c("RM10", "RM15")))) |>
+  filter(!(Species == "Acinetobacter baylyi" & (Strain %in% c("RM08", "RM15")))) |>  # remove two mutants that are the same as RM10 and RM12
   left_join(means, by = join_by(Species, Strain, AA_mut_name_Ecoli)) |>
   left_join(MICs, by = join_by(Species, Strain, AA_mut_name_Ecoli))|>
   mutate(Phenotyped = !is.na(mean_maxOD)) |>
