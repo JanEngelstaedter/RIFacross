@@ -117,7 +117,7 @@ means <- parms  %>% filter(RIFconc==0) %>%
             SD_mumax = sd(mumax, na.rm = TRUE),
             mean_maxOD = mean(maxOD, na.rm = TRUE),
             SD_maxOD = sd(maxOD, na.rm = TRUE),
-            observations = n())  %>% 
+            observations = sum(!is.na(mumax)))  %>% #to remove the NA parameters 
     ungroup()
 
 MICs <- parms |>
