@@ -253,11 +253,10 @@ abmu <- parms %>%
   labs(title = "Acinetobacter baylyi")+
   theme(legend.position= "none")
 
-ecmu
-parms %>% 
+ecmu <- parms %>% 
   filter(RIFconc==0) %>% 
   filter(Species =="Escherichia coli") %>% 
-  ggplot(aes(x=Strain, y=maxOD))+
+  ggplot(aes(x=Strain, y=mumax))+
   geom_boxplot(aes(alpha=0))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
   labs(title = "Escherichia coli")+
@@ -273,9 +272,44 @@ lpmu <- parms %>%
   theme(legend.position= "none")
 
 
-fig_species <- ggarrange(abmu,ecmu, lpmu, 
+fig_species_mumax <- ggarrange(abmu,ecmu, lpmu, 
                     ncol=1, nrow=3)
-fig_species
+fig_species_mumax
+
+
+#maxOD
+abmaxOD <- parms %>% 
+  filter(RIFconc==0) %>% 
+  filter(Species =="Acinetobacter baylyi") %>% 
+  ggplot(aes(x=New_name, y=maxOD))+
+  geom_boxplot(aes(alpha=0))+
+  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
+  labs(title = "Acinetobacter baylyi")+
+  theme(legend.position= "none")
+
+ecmaxOD <- parms %>% 
+  filter(RIFconc==0) %>% 
+  filter(Species =="Escherichia coli") %>% 
+  ggplot(aes(x=New_name, y=maxOD))+
+  geom_boxplot(aes(alpha=0))+
+  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
+  labs(title = "Escherichia coli")+
+  theme(legend.position= "none")
+
+lpmaxOD <- parms %>% 
+  filter(RIFconc==0) %>% 
+  filter(Species =="Lactiplantibacillus plantarum") %>% 
+  ggplot(aes(x=New_name, y=maxOD))+
+  geom_boxplot(aes(alpha=0))+
+  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
+  labs(title = "Lactiplantibacillus plantarum")+
+  theme(legend.position= "none")
+
+
+fig_species_maxOD <- ggarrange(abmaxOD,ecmaxOD, lpmaxOD, 
+                         ncol=1, nrow=3)
+fig_species_maxOD
+
 
 #statistical analysis
 parms$Strain <- as.factor(parms$Strain)
