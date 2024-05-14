@@ -13,6 +13,7 @@ library(ggpubr)
 source("./R/plotting.R")
 source("./R/util.R")
 
+
 # Step 1: Loading and processing all data               ----
 # __________________________________________________________
 
@@ -125,6 +126,12 @@ MICs <- parms |>
   group_by(across(Species:AA_mut_name_Ecoli)) |>
   summarise(MIC = getMIC(RIFconc, maxOD))
 
+WT <- MICs %>% filter (Strain=="WT")
+WT_MIC <- setNames(WT$MIC,WT$Species)
+MICs <- MICs %>% mutate(xfold=MIC/WT_MIC[Species])
+
+
+
 write_csv(MICs, "./output/MICs.csv")
 
 # assessing overlaps between mutations:
@@ -175,11 +182,18 @@ means <- means %>% mutate(relative_mumax=mean_mumax/WT_mumax[Species]) %>%
 #graph relative parameters 
 means_filt <- means %>%  filter(Strain != "R21") %>% 
   filter(Strain!= "RM15") #R21 is the A.baylyi Nt duplication and RM15 is same as RM12 
-test = subset(means_filt, select = c(Species, AA_mut_name_Ecoli, relative_mumax, relative_maxOD))
+means_filt = subset(means_filt, select = c(Species, AA_mut_name_Ecoli, relative_mumax, relative_maxOD))
 
-
-meanwide <- pivot_wider(test, names_from = Species, values_from = c(relative_mumax, relative_maxOD))
+meanwide <- pivot_wider(means_filt, names_from = Species, values_from = c(relative_mumax, relative_maxOD))
 names(meanwide) <- make.names(names(meanwide), unique = TRUE)
+
+
+MICs_filt <- MICs %>%  filter(Strain != "R21") %>% 
+  filter(Strain!= "RM15") #R21 is the A.baylyi Nt duplication and RM15 is same as RM12 
+MICs_filt = subset(MICs_filt, select = c(Species, AA_mut_name_Ecoli, xfold))
+
+MICwide <- pivot_wider(MICs_filt, names_from = Species, values_from = xfold)
+names(MICwide) <- make.names(names(MICwide), unique = TRUE)
 
 ####################
 #E coli v A baylyi parameter plots
@@ -199,6 +213,14 @@ geom_point()+
 geom_text(hjust=0, vjust=0)+
 labs(title = "E.coli v A.baylyi maxOD")
 
+ecab_MIC <- ggplot(MICwide, aes(x=Escherichia.coli,
+                                y=Acinetobacter.baylyi, 
+                                label=AA_mut_name_Ecoli))+
+  geom_point()+
+  geom_text(hjust=0, vjust=0)+
+  labs(title = "E.coli v A.baylyi MIC")
+
+
 
 #L.plantarum v A.baylyi
 lpab_mu <- ggplot(meanwide, aes(x=relative_mumax_Lactiplantibacillus.plantarum, 
@@ -214,6 +236,13 @@ lpab_OD <- ggplot(meanwide, aes(x=relative_maxOD_Lactiplantibacillus.plantarum,
 geom_point() +
 geom_text(hjust=0, vjust=0)+
 labs(title = "L.plantarum v A.baylyi maxOD")
+
+lpab_MIC <- ggplot(MICwide, aes(x=Lactiplantibacillus.plantarum,
+                                y=Acinetobacter.baylyi, 
+                                label=AA_mut_name_Ecoli))+
+  geom_point() +
+  geom_text(hjust=0, vjust=0)+
+  labs(title = "L.plantarum v A.baylyi MIC")
 
 #E.coli v L.plantarum 
 
@@ -232,10 +261,18 @@ geom_point()+
 geom_text(hjust=0, vjust=0)+
 labs(title = "E.coli v L.plantarum maxOD")
 
+eclp_MIC <- ggplot(MICwide, aes(x=Escherichia.coli, 
+                                y=Lactiplantibacillus.plantarum,
+                                label=AA_mut_name_Ecoli))+
+  geom_point()+
+  geom_text(hjust=0, vjust=0)+
+  labs(title = "E.coli v L.plantarum MIC")
 
 
-fig_comp <- ggarrange(ecab_mu,lpab_mu, eclp_mu, ecab_OD, lpab_OD, eclp_OD,
-                    ncol=3, nrow=2)
+fig_comp <- ggarrange(ecab_mu,lpab_mu, eclp_mu, 
+                      ecab_OD, lpab_OD, eclp_OD, 
+                      ecab_MIC, lpab_MIC, eclp_MIC,
+                    ncol=3, nrow=3)
 fig_comp
 
 ##########################
@@ -244,6 +281,9 @@ parms$AA_pos <- as.numeric(gsub("[^0-9]","", parms$AA_mut_name_Ecoli))
 parms <- parms %>% arrange(AA_pos) %>% 
   mutate(New_name = str_replace(AA_mut_name_Ecoli, "rpoB_", ""))
 parms$New_name[parms$Nt_mut_name =="rpoB_dup1611"] <- "rpoB_dup1611"
+
+MICs <- MICs %>% 
+  mutate(New_name = str_replace(AA_mut_name_Ecoli, "rpoB_", ""))
 
 #mumax
 abmu <- parms %>% 
@@ -320,6 +360,29 @@ lpmaxOD <- parms %>%
   xlab("")+
   ylab("")
 
+#MICs
+
+abMIC <- MICs %>% 
+  filter(Species =="Acinetobacter baylyi") %>% 
+  ggplot(aes(x=New_name, y=MIC)) +
+  geom_point()+
+  xlab("")+
+  theme(axis.title.y = element_text(size = 14))
+
+ecMIC <- MICs %>% 
+  filter(Species =="Escherichia coli") %>% 
+  ggplot(aes(x=New_name, y=MIC)) +
+  geom_point()+
+  xlab("")+
+  ylab("")
+
+lpMIC <- MICs %>% 
+  filter(Species =="Lactiplantibacillus plantarum") %>% 
+  ggplot(aes(x=New_name, y=MIC)) +
+  geom_point()+
+  xlab("")+
+  ylab("")
+
 
 fig_species_maxOD <- ggarrange(abmaxOD,ecmaxOD, lpmaxOD, 
                          ncol=1, nrow=3)
@@ -328,7 +391,8 @@ fig_species_maxOD
 
 fig_species <- ggarrange(abmu,ecmu, lpmu,
                          abmaxOD, ecmaxOD, lpmaxOD,
-                         ncol=3, nrow=2)
+                         abMIC, ecMIC, lpMIC,
+                         ncol=3, nrow=3)
 fig_species
 
 
@@ -336,6 +400,6 @@ fig_species
 parms$Strain <- as.factor(parms$Strain)
 res_lm <- lm(maxOD ~ relevel(Strain, ref = "WT"),
              data = parms %>% 
-               filter(Species == "Acinetobacter baylyi" & RIFconc == 0 ))
+               filter(Species == "Escherichia coli" & RIFconc == 0 ))
 summary(res_lm)
 
