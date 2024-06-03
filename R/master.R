@@ -16,6 +16,9 @@ source("./R/util.R")
 
 # Step 1: Loading and processing all data               ----
 # __________________________________________________________
+#input= assay data and spec files
+#output= growth parameters and growth curve plots
+
 
 projects <- read_csv("./data/global_key.csv")
 dat <- vector(mode = "list", length = nrow(projects))
@@ -66,6 +69,9 @@ rm.all()
 
 # Step 2: Add genetic information to data               ----
 # __________________________________________________________
+#input= growth parameters and genetic data from Google Sheet
+#output= growth parameters with corresponding mutation
+
 
 projects <- read_csv("./data/global_key.csv")
 load("./output/analysis.RData")
@@ -102,6 +108,13 @@ parms <- parms |>
          mumax, r2, maxOD) |>
   arrange(Species, Strain, RIFconc, Replicate)
 
+parms$AA_pos <- as.numeric(gsub("[^0-9]","", parms$AA_mut_name_Ecoli))
+parms <- parms %>% arrange(AA_pos) %>% 
+  mutate(New_name = str_replace(AA_mut_name_Ecoli, "rpoB_", "")) %>% 
+  filter(!(Species == "Acinetobacter baylyi" & (Strain %in% c("RM08", "RM15")))) # remove two mutants that are the same as RM10 and RM12
+parms$New_name[parms$Nt_mut_name =="rpoB_dup1611"] <- "dup1611"
+parms$New_name[parms$Strain =="WT"] <- "WT"
+
 write_csv(parms, "./output/growth_parameters.csv")
 
 #empty working environment to keep everything clean:
@@ -109,10 +122,13 @@ rm.all()
 
 # Step 3: Analysing data                                ----
 # __________________________________________________________
+#input= growth parameters 
+#output= mumax, maxOD and MIC parameters and overlap between species
+
 
 parms <- read_csv("./output/growth_parameters.csv")
 
-#max growth rate in absence of antibiotics
+#max growth rate and maxOD in absence of antibiotics
 means <- parms  %>% filter(RIFconc==0) %>% 
   group_by(Species,Strain, AA_mut_name_Ecoli) %>% 
   summarise(mean_mumax = mean(mumax, na.rm = TRUE), 
@@ -122,6 +138,11 @@ means <- parms  %>% filter(RIFconc==0) %>%
             observations = sum(!is.na(mumax)))  %>% #to remove the NA parameters 
     ungroup()
 
+
+
+write_csv(means, "./output/means.csv")
+
+
 MICs <- parms |>
   group_by(across(Species:AA_mut_name_Ecoli)) |>
   summarise(MIC = getMIC(RIFconc, maxOD))
@@ -130,7 +151,8 @@ WT <- MICs %>% filter (Strain=="WT")
 WT_MIC <- setNames(WT$MIC,WT$Species)
 MICs <- MICs %>% mutate(xfold=MIC/WT_MIC[Species])
 
-
+MICs <- MICs %>% 
+  mutate(New_name = str_replace(AA_mut_name_Ecoli, "rpoB_", ""))
 
 write_csv(MICs, "./output/MICs.csv")
 
@@ -167,9 +189,20 @@ growth_parameters |>
   arrange(AA_mut_name_Ecoli) |>
   View()
 
+#empty working environment to keep everything clean:
+rm.all()
 
 # Step 4: Graphing                               ----
 # __________________________________________________________
+#input= growth parameters 
+#output= graph of each species parameters and comparison of parameters between species 
+
+
+
+means <- read.csv("./output/means.csv")
+MICs <- read.csv("./output/MICs.csv")
+parms <- read_csv("./output/growth_parameters.csv")
+
 
 #Make parameters relative to species WT 
 WT <- means %>% filter (Strain=="WT")
@@ -180,7 +213,7 @@ means <- means %>% mutate(relative_mumax=mean_mumax/WT_mumax[Species]) %>%
 
 
 #graph relative parameters 
-means_filt <- means %>%  filter(Strain != "R21") %>% 
+means_filt <- means %>%  filter(Strain != "R21") %>%
   filter(Strain!= "RM15") #R21 is the A.baylyi Nt duplication and RM15 is same as RM12 
 means_filt = subset(means_filt, select = c(Species, AA_mut_name_Ecoli, relative_mumax, relative_maxOD))
 
@@ -195,7 +228,7 @@ MICs_filt = subset(MICs_filt, select = c(Species, AA_mut_name_Ecoli, xfold))
 MICwide <- pivot_wider(MICs_filt, names_from = Species, values_from = xfold)
 names(MICwide) <- make.names(names(MICwide), unique = TRUE)
 
-####################
+
 #E coli v A baylyi parameter plots
 
 ecab_mu<- ggplot(meanwide, aes(x=relative_mumax_Escherichia.coli, 
@@ -218,7 +251,9 @@ ecab_MIC <- ggplot(MICwide, aes(x=Escherichia.coli,
                                 label=AA_mut_name_Ecoli))+
   geom_point()+
   geom_text(hjust=0, vjust=0)+
-  labs(title = "E.coli v A.baylyi MIC")
+  labs(title = "E.coli v A.baylyi MIC")+
+  scale_y_continuous(trans='log10')+
+  scale_x_continuous(trans='log10')
 
 
 
@@ -242,10 +277,12 @@ lpab_MIC <- ggplot(MICwide, aes(x=Lactiplantibacillus.plantarum,
                                 label=AA_mut_name_Ecoli))+
   geom_point() +
   geom_text(hjust=0, vjust=0)+
-  labs(title = "L.plantarum v A.baylyi MIC")
+  labs(title = "L.plantarum v A.baylyi MIC")+
+  scale_y_continuous(trans='log10')+
+  scale_x_continuous(trans='log10')
+
 
 #E.coli v L.plantarum 
-
 eclp_mu<- ggplot(meanwide, aes(x=relative_mumax_Escherichia.coli,
                                y=relative_mumax_Lactiplantibacillus.plantarum, 
                                label=AA_mut_name_Ecoli))+
@@ -266,7 +303,9 @@ eclp_MIC <- ggplot(MICwide, aes(x=Escherichia.coli,
                                 label=AA_mut_name_Ecoli))+
   geom_point()+
   geom_text(hjust=0, vjust=0)+
-  labs(title = "E.coli v L.plantarum MIC")
+  labs(title = "E.coli v L.plantarum MIC")+
+  scale_y_continuous(trans='log10')+
+  scale_x_continuous(trans='log10')
 
 
 fig_comp <- ggarrange(ecab_mu,lpab_mu, eclp_mu, 
@@ -275,15 +314,11 @@ fig_comp <- ggarrange(ecab_mu,lpab_mu, eclp_mu,
                     ncol=3, nrow=3)
 fig_comp
 
+ggexport(fig_comp, filename = "comparison_parameters.pdf")
+
 ##########################
 #graph parameters of all mutations 
-parms$AA_pos <- as.numeric(gsub("[^0-9]","", parms$AA_mut_name_Ecoli))
-parms <- parms %>% arrange(AA_pos) %>% 
-  mutate(New_name = str_replace(AA_mut_name_Ecoli, "rpoB_", ""))
-parms$New_name[parms$Nt_mut_name =="rpoB_dup1611"] <- "rpoB_dup1611"
 
-MICs <- MICs %>% 
-  mutate(New_name = str_replace(AA_mut_name_Ecoli, "rpoB_", ""))
 
 #mumax
 abmu <- parms %>% 
@@ -292,10 +327,13 @@ abmu <- parms %>%
   ggplot(aes(x=New_name, y=mumax))+
   geom_boxplot(aes(alpha=0))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
+  theme_classic()+ 
   labs(title = "Acinetobacter baylyi")+
   theme(legend.position= "none", 
-        axis.title.y = element_text(size = 14))+
-  xlab("")
+        axis.title.y = element_text(size = 14),
+        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
+  xlab("")+
+  coord_cartesian(ylim=c(0,0.1))
 
 ecmu <- parms %>% 
   filter(RIFconc==0) %>% 
@@ -303,10 +341,13 @@ ecmu <- parms %>%
   ggplot(aes(x=New_name, y=mumax))+
   geom_boxplot(aes(alpha=0))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
+  theme_classic()+ 
   labs(title = "Escherichia coli")+
-  theme(legend.position= "none")+
+  theme(legend.position= "none", 
+        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
   xlab("") +
-  ylab("")
+  ylab("")+
+  coord_cartesian(ylim=c(0,0.05))
 
 lpmu <- parms %>% 
   filter(RIFconc==0) %>% 
@@ -314,16 +355,13 @@ lpmu <- parms %>%
   ggplot(aes(x=New_name, y=mumax))+
   geom_boxplot(aes(alpha=0))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
+  theme_classic()+ 
   labs(title = "Lactiplantibacillus plantarum")+
-  theme(legend.position= "none")+
+  theme(legend.position= "none",
+        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
   xlab("")+
-  ylab("")
-
-
-fig_species_mumax <- ggarrange(abmu,ecmu, lpmu, 
-                    ncol=1, nrow=3)
-fig_species_mumax
-
+  ylab("")+
+  coord_cartesian(ylim=c(0,0.0225))
 
 
 #maxOD
@@ -333,10 +371,13 @@ abmaxOD <- parms %>%
   ggplot(aes(x=New_name, y=maxOD))+
   geom_boxplot(aes(alpha=0))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
+  theme_classic()+ 
   #labs(title = "Acinetobacter baylyi")+
   theme(legend.position= "none", 
-        axis.title.y = element_text(size = 14))+
-  xlab("")
+        axis.title.y = element_text(size = 14),
+        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
+  xlab("")+
+  coord_cartesian(ylim=c(0.3,1.15))
 
 ecmaxOD <- parms %>% 
   filter(RIFconc==0) %>% 
@@ -344,10 +385,13 @@ ecmaxOD <- parms %>%
   ggplot(aes(x=New_name, y=maxOD))+
   geom_boxplot(aes(alpha=0))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
+  theme_classic()+ 
   #labs(title = "Escherichia coli")+
-  theme(legend.position= "none")+
+  theme(legend.position= "none",
+        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
   xlab("")+
-  ylab("")
+  ylab("")+
+  coord_cartesian(ylim=c(0.3,1.15))
 
 lpmaxOD <- parms %>% 
   filter(RIFconc==0) %>% 
@@ -355,10 +399,13 @@ lpmaxOD <- parms %>%
   ggplot(aes(x=New_name, y=maxOD))+
   geom_boxplot(aes(alpha=0))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
+  theme_classic()+ 
   #labs(title = "Lactiplantibacillus plantarum")+
-  theme(legend.position= "none")+
+  theme(legend.position= "none", 
+        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
   xlab("")+
-  ylab("")
+  ylab("")+
+  coord_cartesian(ylim=c(0.3,1.15))
 
 #MICs
 
@@ -366,27 +413,32 @@ abMIC <- MICs %>%
   filter(Species =="Acinetobacter baylyi") %>% 
   ggplot(aes(x=New_name, y=MIC)) +
   geom_point()+
+  theme_classic()+ 
   xlab("")+
-  theme(axis.title.y = element_text(size = 14))
+  theme(axis.title.y = element_text(size = 14),
+        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
+  scale_y_continuous(trans='log10')
 
 ecMIC <- MICs %>% 
   filter(Species =="Escherichia coli") %>% 
   ggplot(aes(x=New_name, y=MIC)) +
   geom_point()+
+  theme_classic()+ 
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
   xlab("")+
-  ylab("")
+  ylab("")+
+  scale_y_continuous(trans='log10')
 
 lpMIC <- MICs %>% 
   filter(Species =="Lactiplantibacillus plantarum") %>% 
   ggplot(aes(x=New_name, y=MIC)) +
   geom_point()+
+  theme_classic()+ 
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
   xlab("")+
-  ylab("")
-
-
-fig_species_maxOD <- ggarrange(abmaxOD,ecmaxOD, lpmaxOD, 
-                         ncol=1, nrow=3)
-fig_species_maxOD
+  ylab("")+
+  scale_y_continuous(trans='log10')
+  
 
 
 fig_species <- ggarrange(abmu,ecmu, lpmu,
@@ -395,11 +447,20 @@ fig_species <- ggarrange(abmu,ecmu, lpmu,
                          ncol=3, nrow=3)
 fig_species
 
+ggexport(fig_species, filename = "species_parameters.pdf")
 
-#statistical analysis
+
+#empty working environment to keep everything clean:
+rm.all()
+
+
+# Step 5: Statistical Analysis                               ----
+# __________________________________________________________
+
+parms <- read_csv("./output/growth_parameters.csv")
+
 parms$Strain <- as.factor(parms$Strain)
 res_lm <- lm(maxOD ~ relevel(Strain, ref = "WT"),
              data = parms %>% 
                filter(Species == "Escherichia coli" & RIFconc == 0 ))
 summary(res_lm)
-
