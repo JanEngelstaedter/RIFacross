@@ -16,7 +16,7 @@ source("./R/util.R")
 
 # Step 1: Loading and processing all data               ----
 # __________________________________________________________
-#input= assay data and spec files
+#input= assay data and spec files 
 #output= growth parameters and growth curve plots
 
 
