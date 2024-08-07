@@ -208,9 +208,13 @@ parms <- read_csv("./output/growth_parameters.csv")
 WT <- means %>% filter (Strain=="WT")
 WT_mumax <- setNames(WT$mean_mumax,WT$Species)
 WT_maxOD <- setNames(WT$mean_maxOD, WT$Species)
-means <- means %>% mutate(relative_mumax=mean_mumax/WT_mumax[Species]) %>% 
-  mutate(relative_maxOD=mean_maxOD/WT_maxOD[Species])
 
+means <- means %>% mutate(relative_mumax=mean_mumax/WT_mumax[Species],
+                          relative_maxOD=mean_maxOD/WT_maxOD[Species]
+                          )
+
+attr(means$relative_mumax, "names") <- NULL
+attr(means$relative_maxOD, "names") <- NULL
 
 #graph relative parameters 
 means_filt <- means %>%  filter(Strain != "R21") %>%
