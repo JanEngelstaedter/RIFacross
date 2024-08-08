@@ -318,7 +318,7 @@ fig_comp <- ggarrange(ecab_mu,lpab_mu, eclp_mu,
                     ncol=3, nrow=3)
 fig_comp
 
-ggexport(fig_comp, filename = "comparison_parameters.pdf")
+ggexport(fig_comp, filename = "./plots/comparison_parameters.pdf")
 
 ##########################
 #graph parameters of all mutations 
@@ -451,7 +451,7 @@ fig_species <- ggarrange(abmu,ecmu, lpmu,
                          ncol=3, nrow=3)
 fig_species
 
-ggexport(fig_species, filename = "species_parameters.pdf")
+ggexport(fig_species, filename = "./plots/species_parameters.pdf")
 
 
 #empty working environment to keep everything clean:
