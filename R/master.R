@@ -619,15 +619,13 @@ pleiowide <- pivot_wider(wide, names_from = Species, values_from = c(mean_mumax_
                                                                         mean_mumax_37,SE_mumax_37,mean_maxOD_37,SE_maxOD_37) )
 names(pleiowide) <- make.names(names(pleiowide), unique = TRUE)
 
-write.csv(pleiowide, "./output/growth_parameters_pleiotropy_all.csv")
+write_csv(pleiowide, "./output/growth_parameters_pleiotropy_all.csv")
 
 
 ###################
 #graphing pleiotropy
 
 pleiowide <- read.csv("./output/growth_parameters_pleiotropy_all.csv")
-pleiowide <- pleiowide[,!names(pleiowide) %in% "X"]
-
 
 ggplot(pleiowide, aes(x=mean_mumax_30_Acinetobacter.baylyi, 
                       y=mean_mumax_37_Acinetobacter.baylyi, 
@@ -635,26 +633,39 @@ ggplot(pleiowide, aes(x=mean_mumax_30_Acinetobacter.baylyi,
   geom_point()+
   geom_text(hjust=0, vjust=2)+
   geom_errorbarh(aes(xmin= mean_mumax_30_Acinetobacter.baylyi - SE_mumax_30_Acinetobacter.baylyi,
-                     xmax= mean_mumax_30_Acinetobacter.baylyi + SE_mumax_30_Acinetobacter.baylyi)
-                 )+
+                     xmax= mean_mumax_30_Acinetobacter.baylyi + SE_mumax_30_Acinetobacter.baylyi)) +
   geom_errorbar(aes(ymin= mean_mumax_37_Acinetobacter.baylyi - SE_mumax_37_Acinetobacter.baylyi,
-                    ymax= mean_mumax_37_Acinetobacter.baylyi + SE_mumax_37_Acinetobacter.baylyi)
-                )
-
-
+                    ymax= mean_mumax_37_Acinetobacter.baylyi + SE_mumax_37_Acinetobacter.baylyi))
 
 ggplot(pleiowide, aes(x=mean_maxOD_30_Acinetobacter.baylyi, 
                       y=mean_maxOD_37_Acinetobacter.baylyi, 
+                      label= AA_mut_name_Ecoli)) +
+  geom_point() +
+  geom_text(hjust=0, vjust=2) +
+  geom_errorbarh(aes(xmin= mean_maxOD_30_Acinetobacter.baylyi - SE_maxOD_30_Acinetobacter.baylyi,
+                     xmax= mean_maxOD_30_Acinetobacter.baylyi + SE_maxOD_30_Acinetobacter.baylyi)) +
+  geom_errorbar(aes(ymin= mean_maxOD_37_Acinetobacter.baylyi - SE_maxOD_37_Acinetobacter.baylyi,
+                    ymax= mean_maxOD_37_Acinetobacter.baylyi + SE_maxOD_37_Acinetobacter.baylyi))
+
+ggplot(pleiowide, aes(x=mean_mumax_30_Escherichia.coli, 
+                      y=mean_mumax_37_Escherichia.coli, 
                       label= AA_mut_name_Ecoli))+
   geom_point()+
   geom_text(hjust=0, vjust=2)+
-  geom_errorbarh(aes(xmin= mean_maxOD_30_Acinetobacter.baylyi - SE_maxOD_30_Acinetobacter.baylyi,
-                     xmax= mean_maxOD_30_Acinetobacter.baylyi + SE_maxOD_30_Acinetobacter.baylyi)
-  )+
-  geom_errorbar(aes(ymin= mean_maxOD_37_Acinetobacter.baylyi - SE_maxOD_37_Acinetobacter.baylyi,
-                    ymax= mean_maxOD_37_Acinetobacter.baylyi + SE_maxOD_37_Acinetobacter.baylyi)
-  )
+  geom_errorbarh(aes(xmin= mean_mumax_30_Escherichia.coli - SE_mumax_30_Escherichia.coli,
+                     xmax= mean_mumax_30_Escherichia.coli + SE_mumax_30_Escherichia.coli)) +
+  geom_errorbar(aes(ymin= mean_mumax_37_Escherichia.coli - SE_mumax_37_Escherichia.coli,
+                    ymax= mean_mumax_37_Escherichia.coli + SE_mumax_37_Escherichia.coli))
 
+ggplot(pleiowide, aes(x=mean_maxOD_30_Escherichia.coli, 
+                      y=mean_maxOD_37_Escherichia.coli, 
+                      label= AA_mut_name_Ecoli)) +
+  geom_point() +
+  geom_text(hjust=0, vjust=2) +
+  geom_errorbarh(aes(xmin= mean_maxOD_30_Escherichia.coli - SE_maxOD_30_Escherichia.coli,
+                     xmax= mean_maxOD_30_Escherichia.coli + SE_maxOD_30_Escherichia.coli)) +
+  geom_errorbar(aes(ymin= mean_maxOD_37_Escherichia.coli - SE_maxOD_37_Escherichia.coli,
+                    ymax= mean_maxOD_37_Escherichia.coli + SE_maxOD_37_Escherichia.coli))
 
 
 
