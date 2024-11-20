@@ -9,7 +9,6 @@ library(googlesheets4)
 library(UpSetR)
 library(varhandle)
 library(ggpubr)
-library(ggrepel)
 
 source("./R/plotting.R")
 source("./R/util.R")
@@ -201,7 +200,7 @@ rm.all()
 
 means <- read.csv("./output/means.csv")
 MICs <- read.csv("./output/MICs.csv")
-parms <- read_csv("./output/growth_parameters_h20.csv")
+parms <- read_csv("./output/growth_parameters.csv")
 
 
 #Make parameters relative to species WT 
@@ -223,7 +222,6 @@ means_filt = subset(means_filt, select = c(Species, AA_mut_name_Ecoli, relative_
 
 meanwide <- pivot_wider(means_filt, names_from = Species, values_from = c(relative_mumax, relative_maxOD))
 names(meanwide) <- make.names(names(meanwide), unique = TRUE)
-meanwide <- meanwide %>% mutate(New_name = str_replace(AA_mut_name_Ecoli, "rpoB_", ""))
 
 
 MICs_filt <- MICs %>%  filter(Strain != "R21") %>% 
@@ -232,7 +230,6 @@ MICs_filt = subset(MICs_filt, select = c(Species, AA_mut_name_Ecoli, xfold))
 
 MICwide <- pivot_wider(MICs_filt, names_from = Species, values_from = xfold)
 names(MICwide) <- make.names(names(MICwide), unique = TRUE)
-MICwide <- MICwide %>% mutate(New_name = str_replace(AA_mut_name_Ecoli, "rpoB_", ""))
 
 write_csv(meanwide, "./output/meanwide.csv")
 write_csv(MICwide, "./output/MICwide.csv")
@@ -248,122 +245,86 @@ rm.all()
 
 meanwide <- read.csv("./output/meanwide.csv")
 MICwide <- read.csv("./output/MICwide.csv")
-parms <- read_csv("./output/growth_parameters_h20.csv")
+
 
 
 #E coli v A baylyi parameter plots
 
 ecab_mu<- ggplot(meanwide, aes(x=relative_mumax_Escherichia.coli, 
                                y=relative_mumax_Acinetobacter.baylyi, 
-                               label= NA))+
+                               label=AA_mut_name_Ecoli))+
 geom_point() +
 geom_text(hjust=0, vjust=0)+
-labs(title = "mumax", x= "E. coli", y="A. baylyi")+
-theme_classic()+
-geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
-  coord_cartesian(xlim= c(0.5,1.1), ylim = c(0.35,2))+
-  geom_text_repel(aes(label= New_name ))
-  
+labs(title = "E.coli v A.baylyi mumax")
 
 
 ecab_OD <- ggplot(meanwide, aes(x=relative_maxOD_Escherichia.coli,
                                 y=relative_maxOD_Acinetobacter.baylyi, 
-                                label=NA))+
+                                label=AA_mut_name_Ecoli))+
 geom_point()+
 geom_text(hjust=0, vjust=0)+
-labs(title = "maxOD",  x= "E. coli", y="A. baylyi")+
-  theme_classic()+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
-  coord_cartesian(xlim= c(0.7,1.1), ylim = c(0.55,1.5))+
-  geom_text_repel(aes(label= New_name ))
+labs(title = "E.coli v A.baylyi maxOD")
 
 ecab_MIC <- ggplot(MICwide, aes(x=Escherichia.coli,
                                 y=Acinetobacter.baylyi, 
-                                label=NA))+
+                                label=AA_mut_name_Ecoli))+
   geom_point()+
   geom_text(hjust=0, vjust=0)+
-  labs(title = " MIC",x= "E. coli", y="A. baylyi" )+
+  labs(title = "E.coli v A.baylyi MIC")+
   scale_y_continuous(trans='log10')+
-  scale_x_continuous(trans='log10')+
-  theme_classic()+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
-  geom_text_repel(aes(label= New_name ))
+  scale_x_continuous(trans='log10')
 
 
 
 #L.plantarum v A.baylyi
 lpab_mu <- ggplot(meanwide, aes(x=relative_mumax_Lactiplantibacillus.plantarum, 
                                 y=relative_mumax_Acinetobacter.baylyi, 
-                                label=NA))+
+                                label=AA_mut_name_Ecoli))+
 geom_point() +
 geom_text(hjust=0, vjust=0)+
-labs( x ="L. plantarum" , y= "A. baylyi")+
-  theme_classic()+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
-  coord_cartesian(xlim= c(0.5,1.1), ylim = c(0.35,2))+
-geom_text_repel(aes(label= New_name ))
-
+labs(title = "L.plantarum v A.baylyi mumax")
 
 lpab_OD <- ggplot(meanwide, aes(x=relative_maxOD_Lactiplantibacillus.plantarum,
                                 y=relative_maxOD_Acinetobacter.baylyi, 
-                                label=NA))+
+                                label=AA_mut_name_Ecoli))+
 geom_point() +
 geom_text(hjust=0, vjust=0)+
-labs(x ="L. plantarum" , y= "A. baylyi")+
-  theme_classic()+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
-  coord_cartesian(xlim= c(0.7,1.1), ylim = c(0.55,1.5))+
-  geom_text_repel(aes(label= New_name ))
+labs(title = "L.plantarum v A.baylyi maxOD")
 
 lpab_MIC <- ggplot(MICwide, aes(x=Lactiplantibacillus.plantarum,
                                 y=Acinetobacter.baylyi, 
-                                label=NA))+
+                                label=AA_mut_name_Ecoli))+
   geom_point() +
   geom_text(hjust=0, vjust=0)+
-  labs(x ="L. plantarum" , y= "A. baylyi")+
+  labs(title = "L.plantarum v A.baylyi MIC")+
   scale_y_continuous(trans='log10')+
-  scale_x_continuous(trans='log10')+
-  theme_classic()+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
-  geom_text_repel(aes(label= New_name ))
+  scale_x_continuous(trans='log10')
 
 
 #E.coli v L.plantarum 
 eclp_mu<- ggplot(meanwide, aes(x=relative_mumax_Escherichia.coli,
                                y=relative_mumax_Lactiplantibacillus.plantarum, 
-                               label=NA))+
+                               label=AA_mut_name_Ecoli))+
 geom_point() +
 geom_text(hjust=0, vjust=0)+
-labs(x= "E.coli", y= "L. plantarum")+
-  theme_classic()+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
-  coord_cartesian(xlim= c(0.5,1.1), ylim = c(0.35,2))+
-geom_text_repel(aes(label= New_name ))
-
+labs(title = "E.coli v L.planturum mumax")
 
 
 eclp_OD <- ggplot(meanwide, aes(x=relative_maxOD_Escherichia.coli, 
                                 y=relative_maxOD_Lactiplantibacillus.plantarum,
-                                label=NA))+
+                                label=AA_mut_name_Ecoli))+
 geom_point()+
 geom_text(hjust=0, vjust=0)+
-labs(x= "E.coli", y= "L. plantarum")+ 
-  theme_classic()+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
-  coord_cartesian(xlim= c(0.7,1.1), ylim = c(0.55,1.5))+
-  geom_text_repel(aes(label= New_name ))
+labs(title = "E.coli v L.plantarum maxOD")
 
 eclp_MIC <- ggplot(MICwide, aes(x=Escherichia.coli, 
                                 y=Lactiplantibacillus.plantarum,
                                 label=AA_mut_name_Ecoli))+
   geom_point()+
   geom_text(hjust=0, vjust=0)+
-  labs(x= "E.coli", y= "L. plantarum")+
+  labs(title = "E.coli v L.plantarum MIC")+
   scale_y_continuous(trans='log10')+
-  scale_x_continuous(trans='log10')+
-  theme_classic()+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
-  geom_text_repel(aes(label= New_name ))
+  scale_x_continuous(trans='log10')
 
 
 fig_comp <- ggarrange(ecab_mu,lpab_mu, eclp_mu, 
@@ -372,9 +333,7 @@ fig_comp <- ggarrange(ecab_mu,lpab_mu, eclp_mu,
                     ncol=3, nrow=3)
 fig_comp
 
-ggexport(fig_comp, filename = "./plots/comparison_parameters.pdf", 
-         width = 15, 
-         height = 10)
+ggexport(fig_comp, filename = "./plots/comparison_parameters.pdf")
 
 ##########################
 #graph parameters of all mutations 
@@ -650,7 +609,6 @@ means_overlap <- parms  %>% filter(RIFconc==0) %>%
 
 pleio <- bind_rows(pleioMeans, means_overlap)
 
-write_csv(pleio,  "./output/growth_parameters_pleiotropy_long.csv")
 
 #make into wide by temp
 pleio_filt <- pleio %>% subset(select = c(Species, AA_mut_name_Ecoli, SetTemperature, mean_mumax,SE_mumax,mean_maxOD,SE_maxOD))
@@ -661,15 +619,13 @@ pleiowide <- pivot_wider(wide, names_from = Species, values_from = c(mean_mumax_
                                                                         mean_mumax_37,SE_mumax_37,mean_maxOD_37,SE_maxOD_37) )
 names(pleiowide) <- make.names(names(pleiowide), unique = TRUE)
 
-write.csv(pleiowide, "./output/growth_parameters_pleiotropy_all.csv")
+write_csv(pleiowide, "./output/growth_parameters_pleiotropy_all.csv")
 
 
 ###################
 #graphing pleiotropy
 
-pleiowide <- read_csv("./output/growth_parameters_pleiotropy_all.csv")
-pleiowide <- pleiowide[,!names(pleiowide) %in% "X"]
-
+pleiowide <- read.csv("./output/growth_parameters_pleiotropy_all.csv")
 
 ggplot(pleiowide, aes(x=mean_mumax_30_Acinetobacter.baylyi, 
                       y=mean_mumax_37_Acinetobacter.baylyi, 
@@ -677,112 +633,42 @@ ggplot(pleiowide, aes(x=mean_mumax_30_Acinetobacter.baylyi,
   geom_point()+
   geom_text(hjust=0, vjust=2)+
   geom_errorbarh(aes(xmin= mean_mumax_30_Acinetobacter.baylyi - SE_mumax_30_Acinetobacter.baylyi,
-                     xmax= mean_mumax_30_Acinetobacter.baylyi + SE_mumax_30_Acinetobacter.baylyi)
-                 )+
+                     xmax= mean_mumax_30_Acinetobacter.baylyi + SE_mumax_30_Acinetobacter.baylyi)) +
   geom_errorbar(aes(ymin= mean_mumax_37_Acinetobacter.baylyi - SE_mumax_37_Acinetobacter.baylyi,
-                    ymax= mean_mumax_37_Acinetobacter.baylyi + SE_mumax_37_Acinetobacter.baylyi)
-                )
-
-
+                    ymax= mean_mumax_37_Acinetobacter.baylyi + SE_mumax_37_Acinetobacter.baylyi))
 
 ggplot(pleiowide, aes(x=mean_maxOD_30_Acinetobacter.baylyi, 
                       y=mean_maxOD_37_Acinetobacter.baylyi, 
+                      label= AA_mut_name_Ecoli)) +
+  geom_point() +
+  geom_text(hjust=0, vjust=2) +
+  geom_errorbarh(aes(xmin= mean_maxOD_30_Acinetobacter.baylyi - SE_maxOD_30_Acinetobacter.baylyi,
+                     xmax= mean_maxOD_30_Acinetobacter.baylyi + SE_maxOD_30_Acinetobacter.baylyi)) +
+  geom_errorbar(aes(ymin= mean_maxOD_37_Acinetobacter.baylyi - SE_maxOD_37_Acinetobacter.baylyi,
+                    ymax= mean_maxOD_37_Acinetobacter.baylyi + SE_maxOD_37_Acinetobacter.baylyi))
+
+ggplot(pleiowide, aes(x=mean_mumax_30_Escherichia.coli, 
+                      y=mean_mumax_37_Escherichia.coli, 
                       label= AA_mut_name_Ecoli))+
   geom_point()+
   geom_text(hjust=0, vjust=2)+
-  geom_errorbarh(aes(xmin= mean_maxOD_30_Acinetobacter.baylyi - SE_maxOD_30_Acinetobacter.baylyi,
-                     xmax= mean_maxOD_30_Acinetobacter.baylyi + SE_maxOD_30_Acinetobacter.baylyi)
-  )+
-  geom_errorbar(aes(ymin= mean_maxOD_37_Acinetobacter.baylyi - SE_maxOD_37_Acinetobacter.baylyi,
-                    ymax= mean_maxOD_37_Acinetobacter.baylyi + SE_maxOD_37_Acinetobacter.baylyi,)
-  )
+  geom_errorbarh(aes(xmin= mean_mumax_30_Escherichia.coli - SE_mumax_30_Escherichia.coli,
+                     xmax= mean_mumax_30_Escherichia.coli + SE_mumax_30_Escherichia.coli)) +
+  geom_errorbar(aes(ymin= mean_mumax_37_Escherichia.coli - SE_mumax_37_Escherichia.coli,
+                    ymax= mean_mumax_37_Escherichia.coli + SE_mumax_37_Escherichia.coli))
 
-############
-pleio <- read_csv( "./output/growth_parameters_pleiotropy_long.csv")
-wide <- pivot_wider(pleio_filt, names_from = SetTemperature, values_from = c(mean_mumax,SE_mumax,mean_maxOD,SE_maxOD))
-names(wide) <- make.names(names(wide), unique = TRUE)
-wide <- wide %>% mutate(New_name = str_replace(AA_mut_name_Ecoli, "rpoB_", ""))
-
-pleio_mumax <- ggplot(wide, aes(x= mean_mumax_30 , y= mean_mumax_37))+
-  geom_point(aes(col= Species))+
-  theme_classic()+
-  labs(title = "mumax", x= "30 degrees C" , y= "37 degrees C")+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
-    geom_errorbarh(aes(xmin= mean_mumax_30 - SE_mumax_30,
-                     xmax= mean_mumax_30 + SE_mumax_30, 
-                     col= Species)
-  )+
-  geom_errorbar(aes(ymin= mean_mumax_37 - SE_mumax_37,
-                    ymax= mean_mumax_37 + SE_mumax_37, 
-                    col= Species)
-  )+
-  geom_text_repel(aes(label= New_name ))
+ggplot(pleiowide, aes(x=mean_maxOD_30_Escherichia.coli, 
+                      y=mean_maxOD_37_Escherichia.coli, 
+                      label= AA_mut_name_Ecoli)) +
+  geom_point() +
+  geom_text(hjust=0, vjust=2) +
+  geom_errorbarh(aes(xmin= mean_maxOD_30_Escherichia.coli - SE_maxOD_30_Escherichia.coli,
+                     xmax= mean_maxOD_30_Escherichia.coli + SE_maxOD_30_Escherichia.coli)) +
+  geom_errorbar(aes(ymin= mean_maxOD_37_Escherichia.coli - SE_maxOD_37_Escherichia.coli,
+                    ymax= mean_maxOD_37_Escherichia.coli + SE_maxOD_37_Escherichia.coli))
 
 
 
-pleio_maxOD <- ggplot(wide, aes(x= mean_maxOD_30 , y= mean_maxOD_37))+
-  geom_point(aes(col= Species))+
-  theme_classic()+
-  labs(title = "maxOD", x= "30 degrees C" , y= "37 degrees C")+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
-  geom_errorbarh(aes(xmin= mean_maxOD_30 - SE_maxOD_30,
-                     xmax= mean_maxOD_30 + SE_maxOD_30, 
-                     col= Species)
-  )+
-  geom_errorbar(aes(ymin= mean_maxOD_37 - SE_maxOD_37,
-                    ymax= mean_maxOD_37 + SE_maxOD_37, 
-                    col= Species)
-  )+
-  geom_text_repel(aes(label= New_name ))
-
-
-
-pleio_temp <- ggarrange(pleio_mumax, pleio_maxOD, 
-                        ncol = 1, nrow = 2)
-
-
-ggexport(pleio_temp, filename = "./plots/pleiotropy_scatter.pdf", 
-         width = 15, 
-         height = 15)
-
-###########
-pEmu <- ggplot(pleio %>% filter(Species == "Escherichia coli"), aes(x=SetTemperature, y= mean_mumax, group = AA_mut_name_Ecoli, color = AA_mut_name_Ecoli))+
-         geom_point(size= 2)+
-         geom_line(size= 1)+
-  labs(title= "Escherichia coli", y= "mumax", x="")+
-  theme_classic()+
-  theme(legend.position = "none")
-
-pAmu <- ggplot(pleio %>% filter(Species == "Acinetobacter baylyi"), aes(x=SetTemperature, y= mean_mumax, group = AA_mut_name_Ecoli, color = AA_mut_name_Ecoli))+
-  geom_point(size= 2)+
-  geom_line(size= 1)+
-  labs(title = "Acinetobacter baylyi", x="", y="")+
-  theme_classic()+
-  theme(legend.position = "none")
-
-pEod <- ggplot(pleio %>% filter(Species == "Escherichia coli"), aes(x=SetTemperature, y= mean_maxOD, group = AA_mut_name_Ecoli, color = AA_mut_name_Ecoli))+
-  geom_point(size= 2)+
-  geom_line(size= 1)+ 
-  labs(y="maxOD")+
-  theme_classic()+
-  theme(legend.position = "none")
-
-pAod <- ggplot(pleio %>% filter(Species == "Acinetobacter baylyi"), aes(x=SetTemperature, y= mean_maxOD, group = AA_mut_name_Ecoli, color = AA_mut_name_Ecoli))+
-  geom_point(size= 2)+
-  geom_line(size= 1)+
-  labs(y=" ")+
-  theme_classic()+
-  theme(legend.position = "none")
-
-pleio_lines <- ggarrange(pEmu, pAmu, 
-          pEod, pAod, 
-          nrow= 2, ncol = 2)+
-  theme_classic()+
-  theme(legend.position = "none")
-
-ggexport(pleio_lines, filename = "./plots/pleiotropy_lines.pdf", 
-         width = 15, 
-         height = 15)
 
 # Step 7: Statistical Analysis                               ----
 # __________________________________________________________
