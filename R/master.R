@@ -637,37 +637,96 @@ ggplot(pleiowide, aes(x=mean_mumax_30_Acinetobacter.baylyi,
   geom_errorbar(aes(ymin= mean_mumax_37_Acinetobacter.baylyi - SE_mumax_37_Acinetobacter.baylyi,
                     ymax= mean_mumax_37_Acinetobacter.baylyi + SE_mumax_37_Acinetobacter.baylyi))
 
-ggplot(pleiowide, aes(x=mean_maxOD_30_Acinetobacter.baylyi, 
-                      y=mean_maxOD_37_Acinetobacter.baylyi, 
-                      label= AA_mut_name_Ecoli)) +
-  geom_point() +
-  geom_text(hjust=0, vjust=2) +
-  geom_errorbarh(aes(xmin= mean_maxOD_30_Acinetobacter.baylyi - SE_maxOD_30_Acinetobacter.baylyi,
-                     xmax= mean_maxOD_30_Acinetobacter.baylyi + SE_maxOD_30_Acinetobacter.baylyi)) +
-  geom_errorbar(aes(ymin= mean_maxOD_37_Acinetobacter.baylyi - SE_maxOD_37_Acinetobacter.baylyi,
-                    ymax= mean_maxOD_37_Acinetobacter.baylyi + SE_maxOD_37_Acinetobacter.baylyi))
 
-ggplot(pleiowide, aes(x=mean_mumax_30_Escherichia.coli, 
-                      y=mean_mumax_37_Escherichia.coli, 
-                      label= AA_mut_name_Ecoli))+
+####
+#log transformed plot 
+test <- pleiowide %>% mutate(Ec_mumax_transformed = 
+                               log2(mean_mumax_37_Escherichia.coli/mean_mumax_30_Escherichia.coli))
+
+test <- test %>% mutate(Ec_maxOD_transformed = 
+                          log2(mean_maxOD_37_Escherichia.coli/mean_maxOD_30_Escherichia.coli))
+
+transformed_Ec <- ggplot(test, aes(Ec_mumax_transformed, Ec_maxOD_transformed)) +
   geom_point()+
-  geom_text(hjust=0, vjust=2)+
-  geom_errorbarh(aes(xmin= mean_mumax_30_Escherichia.coli - SE_mumax_30_Escherichia.coli,
-                     xmax= mean_mumax_30_Escherichia.coli + SE_mumax_30_Escherichia.coli)) +
-  geom_errorbar(aes(ymin= mean_mumax_37_Escherichia.coli - SE_mumax_37_Escherichia.coli,
-                    ymax= mean_mumax_37_Escherichia.coli + SE_mumax_37_Escherichia.coli))
-
-ggplot(pleiowide, aes(x=mean_maxOD_30_Escherichia.coli, 
-                      y=mean_maxOD_37_Escherichia.coli, 
-                      label= AA_mut_name_Ecoli)) +
-  geom_point() +
-  geom_text(hjust=0, vjust=2) +
-  geom_errorbarh(aes(xmin= mean_maxOD_30_Escherichia.coli - SE_maxOD_30_Escherichia.coli,
-                     xmax= mean_maxOD_30_Escherichia.coli + SE_maxOD_30_Escherichia.coli)) +
-  geom_errorbar(aes(ymin= mean_maxOD_37_Escherichia.coli - SE_maxOD_37_Escherichia.coli,
-                    ymax= mean_maxOD_37_Escherichia.coli + SE_maxOD_37_Escherichia.coli))
+  geom_vline(xintercept = mu_wt, linetype = "dashed", color = "blue") +
+  geom_hline(yintercept = od_wt, linetype = "dashed", color = "blue") +
+  labs(title = "E. coli", 
+       x = "mumax",
+       y = "maxOD") 
 
 
+wt_values <- test %>% filter(AA_mut_name_Ecoli == "WT")
+mu_wt <- wt_values$Ec_mumax_transformed
+od_wt <- wt_values$Ec_maxOD_transformed
+
+
+test <- test %>% mutate(Ab_mumax_transformed = 
+                          log2(mean_mumax_37_Acinetobacter.baylyi/mean_mumax_30_Acinetobacter.baylyi))
+
+test <- test %>% mutate(Ab_maxOD_transformed = 
+                          log2(mean_maxOD_37_Acinetobacter.baylyi/mean_maxOD_30_Acinetobacter.baylyi))
+
+wt_values <- test %>% filter(AA_mut_name_Ecoli == "WT")
+mu_wt_Ab <- wt_values$Ab_mumax_transformed
+od_wt_Ab <- wt_values$Ab_maxOD_transformed
+
+transformed_Ab <- ggplot(test %>% filter(AA_mut_name_Ecoli != "rpoB_S512P"), aes(Ab_mumax_transformed, Ab_maxOD_transformed)) +
+  geom_point()+
+  geom_vline(xintercept = mu_wt_Ab, linetype = "dashed", color = "blue") +
+  geom_hline(yintercept = od_wt_Ab, linetype = "dashed", color = "blue") +
+  labs(title = "A. baylyi", 
+       x = "mumax",
+       y = "maxOD") 
+
+
+#######
+#scatter plot 
+pleio <- read_csv( "./output/growth_parameters_pleiotropy_long.csv")
+wide <- pivot_wider(pleio_filt, names_from = SetTemperature, values_from = c(mean_mumax,SE_mumax,mean_maxOD,SE_maxOD))
+names(wide) <- make.names(names(wide), unique = TRUE)
+wide <- wide %>% mutate(New_name = str_replace(AA_mut_name_Ecoli, "rpoB_", ""))
+
+pleio_mumax <- ggplot(wide, aes(x= mean_mumax_30 , y= mean_mumax_37))+
+  geom_point(aes(col= Species))+
+  theme_classic()+
+  labs(title = "mumax", x= "30 degrees C" , y= "37 degrees C")+
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
+  geom_errorbarh(aes(xmin= mean_mumax_30 - SE_mumax_30,
+                     xmax= mean_mumax_30 + SE_mumax_30, 
+                     col= Species)
+  )+
+  geom_errorbar(aes(ymin= mean_mumax_37 - SE_mumax_37,
+                    ymax= mean_mumax_37 + SE_mumax_37, 
+                    col= Species)
+  )+
+  geom_text_repel(aes(label= New_name ))
+
+
+
+pleio_maxOD <- ggplot(wide, aes(x= mean_maxOD_30 , y= mean_maxOD_37))+
+  geom_point(aes(col= Species))+
+  theme_classic()+
+  labs(title = "maxOD", x= "30 degrees C" , y= "37 degrees C")+
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
+  geom_errorbarh(aes(xmin= mean_maxOD_30 - SE_maxOD_30,
+                     xmax= mean_maxOD_30 + SE_maxOD_30, 
+                     col= Species)
+  )+
+  geom_errorbar(aes(ymin= mean_maxOD_37 - SE_maxOD_37,
+                    ymax= mean_maxOD_37 + SE_maxOD_37, 
+                    col= Species)
+  )+
+  geom_text_repel(aes(label= New_name ))
+
+
+
+pleio_temp <- ggarrange(pleio_mumax, pleio_maxOD, 
+                        ncol = 1, nrow = 2)
+
+
+ggexport(pleio_temp, filename = "./plots/pleiotropy_scatter.pdf", 
+         width = 15, 
+         height = 15)
 
 
 # Step 7: Statistical Analysis                               ----
