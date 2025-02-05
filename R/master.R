@@ -678,6 +678,9 @@ transformed_Ab <- ggplot(test %>% filter(AA_mut_name_Ecoli != "rpoB_S512P"), aes
        x = "mumax",
        y = "maxOD") 
 
+######################LABEL THE MUTANTS? also the dotted lines are the WT for comparison, 
+
+
 
 #######
 #scatter plot 

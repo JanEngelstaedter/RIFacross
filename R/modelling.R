@@ -26,8 +26,21 @@ mumax <- pleio_mod %>%
 maxOD_nonneg <- maxOD %>% filter(maxOD > 0)
 mod <- lm(maxOD ~ AA_mut_name_Ecoli*Species + 
             SetTemperature*Species + 
-            AA_mut_name_Ecoli*SetTemperature)
+            AA_mut_name_Ecoli*SetTemperature, data = maxOD_nonneg)
 summary(mod)
+
+#############################################
+# brms version
+library(brms)
+mod <- brm(maxOD ~ AA_mut_name_Ecoli*Species + 
+            SetTemperature*Species + 
+            AA_mut_name_Ecoli*SetTemperature, data = maxOD_nonneg)
+summary(mod)
+plot(mod)
+
+
+
+#############################################
 
 mod <- lm(maxOD ~ AA_mut_name_Ecoli*SetTemperature*Species, data = maxOD)
 summary(mod)
@@ -38,7 +51,7 @@ summary(mod)
 plot(mod)
 
 
-mod_mu <- lm(mumax ~ AA_mut_name_Ecoli*SetTemperature*Species, data = mumax)
+mod_mu <- glm(mumax ~ AA_mut_name_Ecoli*SetTemperature*Species, data = mumax, family = Gamma(link = "inverse"))
 summary(mod_mu)
 
 mod <- lm(maxOD ~ SetTemperature*AA_mut_name_Ecoli, data = maxOD)
