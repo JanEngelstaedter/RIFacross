@@ -1,5 +1,6 @@
 library(tidyverse)
 library(brms)
+library(broom)
 
 pleioParms <- read.csv("./output/growth_parameters_pleiotropy.csv")
 parms <- read_csv("./output/growth_parameters_h20.csv")
@@ -66,25 +67,30 @@ pleioParms <- read.csv("./output/growth_parameters_pleiotropy.csv")
 
 Testmuts <- pleioParms %>% 
   filter(Species == "Escherichia coli") %>% 
-  filter(AA_mut_name_Ecoli %in% c("WT", "rpoB_D516G"))
+  mutate(AA_mut_name_Ecoli = fct_relevel(factor(AA_mut_name_Ecoli), "WT")) 
 
 
-df_WT <- Testmuts %>% filter(AA_mut_name_Ecoli =="WT")
-df_mut <- Testmuts %>% filter(AA_mut_name_Ecoli =="rpoB_D516G")
+# df_WT <- Testmuts %>% filter(AA_mut_name_Ecoli =="WT")
+# df_mut <- Testmuts %>% filter(AA_mut_name_Ecoli =="rpoB_D516G")
 
 
-fit_y <- brm(mumax ~ 1, data = Testmuts %>% filter(AA_mut_name_Ecoli =="rpoB_D516G"))
+fit_y <- brm(maxOD ~ 1, data = Testmuts %>% filter(AA_mut_name_Ecoli =="rpoB_D516G"))
 summary(fit_y)
 plot(fit_y)
 
-fit_z <- brm(mumax ~ 1, data = Testmuts %>% filter(AA_mut_name_Ecoli =="WT"))
+fit_z <- brm(maxOD ~ AA_mut_name_Ecoli, data = Testmuts)
 summary(fit_z)
+tidy(fixef(fit_z))
 plot(fit_z)
+#try using tidy.draws instead of as.draws
+posterior_WT <- as_draws_df(fit_z) %>% pull(b_Intercept)
+posterior_mut <- as_draws_df(fit_z) %>% pull(b_AA_mut_name_EcolirpoB_I572L)
 
-posterior_y <- as_draws_df(fit_y) %>% pull(b_Intercept)
-posterior_z <- as_draws_df(fit_z) %>% pull(b_Intercept)
+ratio_mut_WT_maxod <- (posterior_WT + posterior_mut) / posterior_WT
+hist(ratio_mut_WT_maxod)
 
 posterior_x <- posterior_y / posterior_z
+posterior_x <- (intercept + posterior_mut) / intercept
 
 # Compute posterior mean and 95% credible interval
 x_mean <- mean(posterior_x)
