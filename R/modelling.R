@@ -64,34 +64,34 @@ summary(mod)
 
 pleioParms <- read.csv("./output/growth_parameters_pleiotropy.csv")
 
-
+#get one condition, set the level 
 Testmuts <- pleioParms %>% 
-  filter(Species == "Escherichia coli") %>% 
+  filter(Species == "Escherichia coli") +
   mutate(AA_mut_name_Ecoli = fct_relevel(factor(AA_mut_name_Ecoli), "WT")) 
 
+#fit the model to all the replicates to get the mean and posteriors
+fit <- brm(maxOD ~ AA_mut_name_Ecoli, data = Testmuts)
+summary(fit)
+tidy(fixef(fit))
+plot(fit)
 
-# df_WT <- Testmuts %>% filter(AA_mut_name_Ecoli =="WT")
-# df_mut <- Testmuts %>% filter(AA_mut_name_Ecoli =="rpoB_D516G")
 
 
-fit_y <- brm(maxOD ~ 1, data = Testmuts %>% filter(AA_mut_name_Ecoli =="rpoB_D516G"))
-summary(fit_y)
-plot(fit_y)
+#will need to loop this to do for all mutants in the condition
 
-fit_z <- brm(maxOD ~ AA_mut_name_Ecoli, data = Testmuts)
-summary(fit_z)
-tidy(fixef(fit_z))
-plot(fit_z)
 #try using tidy.draws instead of as.draws
-posterior_WT <- as_draws_df(fit_z) %>% pull(b_Intercept)
-posterior_mut <- as_draws_df(fit_z) %>% pull(b_AA_mut_name_EcolirpoB_I572L)
+posterior_WT <- as_draws_df(fit) %>% pull(b_Intercept)
+posterior_mut <- as_draws_df(fit) %>% pull(b_AA_mut_name_EcolirpoB_I572L)#in the loop this will be the "i", but remember that it has to have the b_ before the column and mutation name 
 
+#will need to use these pulls to also get the absolute means 
+
+
+#to get it relative 
 ratio_mut_WT_maxod <- (posterior_WT + posterior_mut) / posterior_WT
 hist(ratio_mut_WT_maxod)
 
-posterior_x <- posterior_y / posterior_z
-posterior_x <- (intercept + posterior_mut) / intercept
 
+#isn't the intercept the mean for the WT? why is it saying to mean the posteriors?
 # Compute posterior mean and 95% credible interval
 x_mean <- mean(posterior_x)
 x_CI <- quantile(posterior_x, probs = c(0.025, 0.975))
@@ -110,3 +110,19 @@ cat("95% Credible Interval:", x_CI[1], "-", x_CI[2], "\n")
 #will need loops inside loops for different temps and species? 
 
 
+#To do
+#this will be the way to calculate all means-
+#start with the entire dataframe of parameters for all temps,species
+#then use loops to filter through the species, temps
+#write a function that does the brms for the mutants in each condition for the 2 parameters and the Credible intervals
+#change to highest posterior density intervals
+
+
+#when calling the function, be able to specify the species and temp, use this for the loops 
+#edit the dataframe so that WT is the first level 
+#then will need to extract the data 
+#extract the absolute value (and the absolute CIs?)
+#then calculate the relative value 
+#also the relative CIs
+
+#find a way to make this a nice table that the loop fills out with info 
