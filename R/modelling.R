@@ -103,6 +103,9 @@ cat("95% Credible Interval:", x_CI[1], "-", x_CI[2], "\n")
 
 
 
+
+
+
 #write a loop? have the WT and then loop through all the different mutants? or is there an easier way?
 #will need loops inside loops for different temps and species? 
 
