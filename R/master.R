@@ -573,7 +573,7 @@ write_csv(pleioParms, "./output/growth_parameters_pleiotropy.csv")
 ###################
 #mean growth parameters 
 
-pleioParms <- read.csv("./output/growth_parameters_pleiotropy.csv")
+pleioParms <- read_csv("./output/growth_parameters_pleiotropy.csv")
 parms <- read_csv("./output/growth_parameters_h20.csv")
 
 #remove the baylyi strains that didn't grow in that replicate 
