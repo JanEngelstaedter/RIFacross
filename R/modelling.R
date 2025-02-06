@@ -106,11 +106,6 @@ cat("95% Credible Interval:", x_CI[1], "-", x_CI[2], "\n")
 
 
 
-#write a loop? have the WT and then loop through all the different mutants? or is there an easier way?
-#will need loops inside loops for different temps and species? 
-
-
-#To do
 #this will be the way to calculate all means-
 #start with the entire dataframe of parameters for all temps,species
 #then use loops to filter through the species, temps
@@ -126,3 +121,24 @@ cat("95% Credible Interval:", x_CI[1], "-", x_CI[2], "\n")
 #also the relative CIs
 
 #find a way to make this a nice table that the loop fills out with info 
+
+pleioParms <- read.csv("./output/growth_parameters_pleiotropy.csv")
+conditions <- read_csv("./data/conditions_key.csv")
+dat <- c()
+fit <- c()
+
+for (i in 1:nrow(conditions)) {
+  cat(paste0(">>> Working on condition ", conditions$Condition[i], "\n"))
+  dat <- pleioParms %>% 
+    filter(pleioParms$Species== conditions$Species[[i]])
+  
+  fit[[i]] <- brm(maxOD ~ AA_mut_name_Ecoli, data = pleioParms)
+  summary(fit[[i]])
+  
+}
+
+#why doesn't it print the summary? 
+#try to get the fits out of being a sub-dataframe thing
+#try to get the filtering for the temperature working too 
+
+#then I can try to extract the values 
