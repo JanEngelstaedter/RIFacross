@@ -130,20 +130,32 @@ pull_maxOD <- c()
 fit_mumax <- c()
 pull_mumax <- c()
 
+fit <- c()
+pull <- c()
+
 for (i in 1:nrow(conditions)) {
-  cat(paste0(">>> Working on condition ", conditions$Species[i]," in ", conditions$Temperature[i]," degrees C" , "\n"))
+  cat(paste0(">>> Working on ", conditions$Species[i]," in ", conditions$Temperature[i]," degrees C" , "\n"))
   dat <- pleioParms %>% 
     filter(pleioParms$Species== conditions$Species[[i]]) %>% 
-    #add in temperature filter 
+    #add in a temperature filter 
     mutate(AA_mut_name_Ecoli = fct_relevel(factor(AA_mut_name_Ecoli), "WT")) 
   
-  fit_maxOD[[conditions$Condition[i]]] <- brm(maxOD ~ AA_mut_name_Ecoli, data = dat)
-  pull_maxOD[[conditions$Condition[i]]] <- fixef(fit_maxOD[[conditions$Condition[i]]])
+  fit$maxOD[[conditions$Condition[i]]] <- brm(maxOD ~ AA_mut_name_Ecoli, data = dat)
+  pull$maxOD[[conditions$Condition[i]]] <- fixef(fit_maxOD[[conditions$Condition[i]]])
   
-  fit_mumax[[conditions$Condition[i]]] <- brm(mumax ~ AA_mut_name_Ecoli, data = dat)
-  pull_mumax[[conditions$Condition[i]]] <- fixef(fit_mumax[[conditions$Condition[i]]])
+  fit$mumax[[conditions$Condition[i]]] <- brm(mumax ~ AA_mut_name_Ecoli, data = dat)
+  pull$mumax[[conditions$Condition[i]]] <- fixef(fit_mumax[[conditions$Condition[i]]])
+ 
   
+  #above to get the absolute parameter values (need to format it to the intercept)
+  
+  #need to use the posteriors to get the relative parameters and CIs
+   
 }
+
+posterior_WT <- as_draws_df(fit$maxOD$EC30) %>% pull(b_Intercept)
+posterior_mut <- as_draws_df(fit$maxOD$EC30) %>% pull(b_AA_mut_name_EcolirpoB_I572L)#in the loop this will be the "i", but remember that it has to have the b_ before the column and mutation name 
+
 
 summary(fit$EC30)
 
@@ -151,7 +163,7 @@ summary(fit$EC30)
 
 
 
-#why doesn't it print the summary? 
+
 #try to get the fits out of being a sub-dataframe thing
 #try to get the filtering for the temperature working too 
 
