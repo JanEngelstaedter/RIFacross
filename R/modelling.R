@@ -125,20 +125,37 @@ cat("95% Credible Interval:", x_CI[1], "-", x_CI[2], "\n")
 pleioParms <- read.csv("./output/growth_parameters_pleiotropy.csv")
 conditions <- read_csv("./data/conditions_key.csv")
 dat <- c()
-fit <- c()
+fit_maxOD <- c()
+pull_maxOD <- c()
+fit_mumax <- c()
+pull_mumax <- c()
 
 for (i in 1:nrow(conditions)) {
-  cat(paste0(">>> Working on condition ", conditions$Condition[i], "\n"))
+  cat(paste0(">>> Working on condition ", conditions$Species[i]," in ", conditions$Temperature[i]," degrees C" , "\n"))
   dat <- pleioParms %>% 
-    filter(pleioParms$Species== conditions$Species[[i]])
+    filter(pleioParms$Species== conditions$Species[[i]]) %>% 
+    #add in temperature filter 
+    mutate(AA_mut_name_Ecoli = fct_relevel(factor(AA_mut_name_Ecoli), "WT")) 
   
-  fit[[i]] <- brm(maxOD ~ AA_mut_name_Ecoli, data = pleioParms)
-  summary(fit[[i]])
+  fit_maxOD[[conditions$Condition[i]]] <- brm(maxOD ~ AA_mut_name_Ecoli, data = dat)
+  pull_maxOD[[conditions$Condition[i]]] <- fixef(fit_maxOD[[conditions$Condition[i]]])
+  
+  fit_mumax[[conditions$Condition[i]]] <- brm(mumax ~ AA_mut_name_Ecoli, data = dat)
+  pull_mumax[[conditions$Condition[i]]] <- fixef(fit_mumax[[conditions$Condition[i]]])
   
 }
+
+summary(fit$EC30)
+
+#SetTemp is an integer- maybe why not working cause in conditions is a number 
+
+
 
 #why doesn't it print the summary? 
 #try to get the fits out of being a sub-dataframe thing
 #try to get the filtering for the temperature working too 
+
+#when adding in all the data, will need to take the RIF concentrations into account!
+#look at previous code, may have filtered out the RIf wells 
 
 #then I can try to extract the values 
