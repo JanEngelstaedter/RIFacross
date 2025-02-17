@@ -125,36 +125,83 @@ cat("95% Credible Interval:", x_CI[1], "-", x_CI[2], "\n")
 pleioParms <- read.csv("./output/growth_parameters_pleiotropy.csv")
 conditions <- read_csv("./data/conditions_key.csv")
 dat <- c()
+
+
 fit_maxOD <- c()
 pull_maxOD <- c()
 fit_mumax <- c()
 pull_mumax <- c()
 
-fit <- c()
-pull <- c()
-
 for (i in 1:nrow(conditions)) {
-  cat(paste0(">>> Working on ", conditions$Species[i]," in ", conditions$Temperature[i]," degrees C" , "\n"))
+  cat(paste0(">>> Working on ", conditions$Species[i]," in ", conditions$Temperature[i]," degrees C maxOD" , "\n"))
   dat <- pleioParms %>% 
-    filter(pleioParms$Species== conditions$Species[[i]]) %>% 
-    #add in a temperature filter 
+    filter(pleioParms$Species== conditions$Species[[i]]) 
+  
+  dat <- dat %>% 
+    filter(dat$SetTemperature == conditions$Temperature[[i]])%>% 
     mutate(AA_mut_name_Ecoli = fct_relevel(factor(AA_mut_name_Ecoli), "WT")) 
   
-  fit$maxOD[[conditions$Condition[i]]] <- brm(maxOD ~ AA_mut_name_Ecoli, data = dat)
-  pull$maxOD[[conditions$Condition[i]]] <- fixef(fit_maxOD[[conditions$Condition[i]]])
   
-  fit$mumax[[conditions$Condition[i]]] <- brm(mumax ~ AA_mut_name_Ecoli, data = dat)
-  pull$mumax[[conditions$Condition[i]]] <- fixef(fit_mumax[[conditions$Condition[i]]])
+  fit_maxOD[[conditions$Condition[i]]] <- brm(maxOD ~ AA_mut_name_Ecoli, data = dat)
+  pull_maxOD[[conditions$Condition[i]]] <- fixef(fit_maxOD[[conditions$Condition[i]]])
+
+  
+  cat(paste0(">>> Working on ", conditions$Species[i]," in ", conditions$Temperature[i]," degrees C mumax" , "\n"))
+  
+  fit_mumax[[conditions$Condition[i]]] <- brm(mumax ~ AA_mut_name_Ecoli, data = dat)
+  pull_mumax[[conditions$Condition[i]]] <- fixef(fit_mumax[[conditions$Condition[i]]])
  
   
   #above to get the absolute parameter values (need to format it to the intercept)
   
-  #need to use the posteriors to get the relative parameters and CIs
+
    
 }
 
-posterior_WT <- as_draws_df(fit$maxOD$EC30) %>% pull(b_Intercept)
-posterior_mut <- as_draws_df(fit$maxOD$EC30) %>% pull(b_AA_mut_name_EcolirpoB_I572L)#in the loop this will be the "i", but remember that it has to have the b_ before the column and mutation name 
+
+#getting absolute values 
+bluh <- pull_maxOD[["EC30"]]
+
+coef_adj <- c(bluh[1,1])
+for (i in 2:nrow(bluh)){
+  coef_adj[i] <- bluh[1,1] + bluh[i,1]
+}
+
+bluh[1,1] + bluh[i,1]
+
+
+
+
+#use posteriors (fit) to get relative parameters and CIs
+
+
+for (i in 1:nrow(conditions)){
+  dat <- pleioParms %>% 
+    filter(pleioParms$Species== conditions$Species[[i]]) 
+  dat <- dat %>% 
+    filter(dat$SetTemperature == conditions$Temperature[[i]])
+  
+  Strains <- unique(dat$AA_mut_name_Ecoli)
+  
+  for (i in 1:nrows(Strains))
+  
+  posterior_WT <- as_draws_df(fit_maxOD[[conditions$Condition[i]]]) %>% pull(b_Intercept)
+  posterior_mut <- as_draws_df(fit_maxOD[[conditions$Condition[i]]]) %>% pull(#this needs to be the Strain in the loop fromt the condition)
+  
+  
+  
+  
+}
+
+
+
+posterior_WT <- as_draws_df(fit_maxOD$EC30) %>% pull(b_Intercept)
+posterior_mut <quantile(ratio_mut_WT_maxod, probs = c(0.025, 0.975))- as_draws_df(fit_maxOD$EC30) %>% pull(b_AA_mut_name_EcolirpoB_I572L)#in the loop this will be the "i", but remember that it has to have the b_ before the column and mutation name 
+ratio_mut_WT_maxod <- (posterior_WT + posterior_mut) / posterior_WT
+hist(ratio_mut_WT_maxod)
+x_mean <- mean(ratio_mut_WT_maxod)
+x_CI <- 
+
 
 
 summary(fit$EC30)
@@ -170,4 +217,64 @@ summary(fit$EC30)
 #when adding in all the data, will need to take the RIF concentrations into account!
 #look at previous code, may have filtered out the RIf wells 
 
-#then I can try to extract the values 
+#then I can try to extract the values
+
+
+
+
+
+
+#try to combine everything together 
+pleioParms <- read.csv("./output/growth_parameters_pleiotropy.csv")
+conditions <- read_csv("./data/conditions_key.csv")
+
+dat <- c()
+ratio_maxOD <- c()
+ratio_mumax <- c()
+Strain_name <- c()
+fit_maxOD <- c()
+fit_mumax <- c()
+
+for (i in 1:nrow(conditions)) {
+  dat <- pleioParms %>% 
+    filter(pleioParms$Species== conditions$Species[[i]]) 
+  
+  dat <- dat %>% 
+    filter(dat$SetTemperature == conditions$Temperature[[i]])%>% 
+    mutate(AA_mut_name_Ecoli = fct_relevel(factor(AA_mut_name_Ecoli), "WT")) 
+  
+  Strains <- data.frame(AA_mut_name_Ecoli = unique(dat$AA_mut_name_Ecoli)) %>% filter(AA_mut_name_Ecoli != "WT")
+  
+  #calculate maxOD
+  cat(paste0(">>> Working on ", conditions$Species[i]," in ", conditions$Temperature[i]," degrees C " , "\n"))
+  condition <- conditions$Condition[i]
+  
+  fit_maxOD[[condition]] <- brm(maxOD ~ AA_mut_name_Ecoli, data = dat)
+  fit_mumax[[condition]] <- brm(mumax ~ AA_mut_name_Ecoli, data = dat)
+  
+  
+  posterior_WT_maxOD <- as_draws_df(fit_maxOD[[condition]])%>% pull(b_Intercept)
+  posterior_WT_mumax <- as_draws_df(fit_mumax[[condition]])%>% pull(b_Intercept)
+    
+  for(i in 2:nrow(Strains)){
+      Strain_name <- paste0("b_AA_mut_name_Ecoli", Strains$AA_mut_name_Ecoli[i])
+      posterior_mut_maxOD <- as_draws_df(fit_maxOD[[condition]]) %>% pull(Strain_name) 
+      posterior_mut_mumax <- as_draws_df(fit_mumax[[condition]]) %>% pull(Strain_name) 
+        
+      ratio_maxOD[[condition]][[Strain_name]]<- (posterior_WT_maxOD + posterior_mut_maxOD) / posterior_WT_maxOD
+      ratio_mumax[[condition]][[Strain_name]]<- (posterior_WT_mumax + posterior_mut_mumax) / posterior_WT_mumax
+      
+  }
+  
+  }
+
+#Error: Column `b_AA_mut_name_EcolirpoB_S509R` doesn't exist. for AB37- think this in because of mutants that don't grow and give NAs
+#how to include the WT in making it relative 
+#how to get the means and CI's out of this list(after the loop?)
+
+
+
+     
+    
+    
+}
