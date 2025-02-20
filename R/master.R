@@ -9,6 +9,8 @@ library(googlesheets4)
 library(UpSetR)
 library(varhandle)
 library(ggpubr)
+library(brms)
+library(broom)
 
 source("./R/plotting.R")
 source("./R/util.R")
