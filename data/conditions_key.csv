@@ -1,3 +1,6 @@
 Condition,Species,Temperature
 EC30,Escherichia coli,30
+EC37,Escherichia coli,37
+AB30,Acinetobacter baylyi,30
 AB37,Acinetobacter baylyi,37
+LP30,Lactiplantibacillus plantarum,30
