@@ -205,6 +205,7 @@ parms_0 <- parms %>% filter(RIFconc == 0 ) %>%
 
 parms_all <- bind_rows(pleioParms, parms_0) %>% select(-c(RIFconc, Replicate))
 
+parms_all$mumax[is.na(parms_all$mumax)] <- 0 
 
 
 dat <- c()
@@ -215,78 +216,62 @@ fit_maxOD <- c()
 fit_mumax <- c()
 maxOD <- c()
 mumax <- c()
-posterior_WT_maxOD <- c()
-posterior_WT_mumax <- c()
 
 
-post_summaries <- parms_all |>
-  distinct(Species, New_name, SetTemperature) |>
-  mutate(mean_maxOD = NA, mean_mumax = NA) |>
-  arrange(Species, SetTemperature)
+# #post_summaries <- pleioParms |>
+#   distinct(Species, New_name, SetTemperature) |>
+#   mutate(mean_maxOD = NA, mean_mumax = NA) |>
+#   arrange(Species, SetTemperature)
 
 for (i in 1:nrow(conditions)) {
   dat <- parms_all %>% 
-    filter(parms_all$Species== conditions$Species[i]) 
+    filter(parms_all$Species== conditions$Species[[i]]) 
   
   dat <- dat %>% 
-    filter(dat$SetTemperature == conditions$Temperature[[i]]) %>% 
-    mutate(New_name = fct_relevel(factor(New_name), "WT"))
+    filter(dat$SetTemperature == conditions$Temperature[[i]])%>% 
+    mutate(New_name = fct_relevel(factor(New_name), "WT")) 
   
-  Strains <- data.frame(New_name = unique(dat$New_name))  %>% 
-    arrange(New_name) %>%  
-    mutate(New_name = fct_relevel(factor(New_name), "WT"))
-  
+  Strains <- data.frame(New_name = unique(dat$New_name)) %>% filter(New_name != "WT")
   
   #calculate parameters
   cat(paste0(">>> Working on ", conditions$Species[i]," in ", conditions$Temperature[i]," degrees C " , "\n"))
   condition <- conditions$Condition[i]
   
   fit_maxOD[[condition]] <- brm(maxOD ~ New_name, data = dat)
- # fit_mumax[[condition]] <- brm(mumax ~ New_name, data = dat)
+  fit_mumax[[condition]] <- brm(mumax ~ New_name, data = dat)
   
   
-  posterior_WT_maxOD[[condition]] <- as_draws_df(fit_maxOD[[condition]])%>% pull(b_Intercept)
-  #posterior_WT_mumax[[condition]] <- as_draws_df(fit_mumax[[condition]])%>% pull(b_Intercept)
+  posterior_WT_maxOD <- as_draws_df(fit_maxOD[[condition]])%>% pull(b_Intercept)
+  posterior_WT_mumax <- as_draws_df(fit_mumax[[condition]])%>% pull(b_Intercept)
   
   
-  for(j in 2:nrow(Strains)){
+  #if statement to get relative WT? need to make the name for b_intercept the same as the WT? or the WT the same as the b_intercept?
+  
+  
+  for(j in 1:nrow(Strains)){
     Strain_name <- paste0("b_New_name", Strains$New_name[j])
-    
     posterior_mut_maxOD <- as_draws_df(fit_maxOD[[condition]]) %>% pull(Strain_name) 
-    #posterior_mut_mumax <- as_draws_df(fit_mumax[[condition]]) %>% pull(Strain_name) 
+    posterior_mut_mumax <- as_draws_df(fit_mumax[[condition]]) %>% pull(Strain_name) 
     
-    ratio_maxOD[[condition]][[Strain_name]]<- (posterior_WT_maxOD[[condition]] + posterior_mut_maxOD) / posterior_WT_maxOD[[condition]]
-   # ratio_mumax[[condition]][[Strain_name]]<- (posterior_WT_mumax[[condition]] + posterior_mut_mumax) / posterior_WT_mumax[[condition]]
+    ratio_maxOD[[condition]][[Strain_name]]<- (posterior_WT_maxOD + posterior_mut_maxOD) / posterior_WT_maxOD
+    ratio_mumax[[condition]][[Strain_name]]<- (posterior_WT_mumax + posterior_mut_mumax) / posterior_WT_mumax
     
-    print(Strains[j])  
-    print(conditions$Species[i])  
-    print(conditions$Temperature[i])
+    maxOD[[condition]][[Strain_name]] <- mean(ratio_maxOD[[condition]][[Strain_name]])# add HDI here!
+    mumax[[condition]][[Strain_name]] <- mean(ratio_mumax[[condition]][[Strain_name]])
     
-    
-    #maxOD[[condition]][[Strain_name]] <- mean(ratio_maxOD[[condition]][[Strain_name]])
-    
-    # post_summaries <- post_summaries %>% 
-    #   mutate(mean_maxOD = ifelse(New_name == Strains[j] & 
-    #                                Species == conditions$Species[i] & 
-    #                                SetTemperature == conditions$Temperature[i], 
-    #                              mean(ratio_maxOD[[condition]][[Strain_name]]), 
-    #                              mean_maxOD))
-    # 
-    # 
-    # #post_summaries$mean_maxOD[[New_name == Strains[j] & 
-    #                           #  Species == conditions$Species[i] & 
-    #                           #  SetTemperature == conditions$Temperature[i]]] <- mean(ratio_maxOD[[condition]][[Strain_name]])
-    # 
-    # post_summaries$mean_mumax[[New_name == Strains[j] & 
-    #                             Species == conditions$Species[i] & 
-    #                             SetTemperature == conditions$Temperature[i]]] <- mean(ratio_mumax[[condition]][[Strain_name]])
-    # 
-    
-    #add HDI!
     
   }
   
 }
+
+save(maxOD, file = "./output/brms_maxOD.RData")
+save(mumax, file = "./output/brms_mumax.RData")
+
+
+# post_summaries <- parms_all |>
+#   distinct(Species, New_name, SetTemperature) |>
+#   mutate(mean_maxOD = NA, mean_mumax = NA) |>
+#   arrange(Species, SetTemperature)
 
 
 

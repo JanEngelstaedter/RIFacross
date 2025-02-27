@@ -287,7 +287,12 @@ for (i in 1:nrow(conditions)) {
   }
   
   }
-
+# post_summaries <- post_summaries %>% 
+#   mutate(mean_maxOD = ifelse(New_name == Strains[j] & 
+#                                Species == conditions$Species[i] & 
+#                                SetTemperature == conditions$Temperature[i], 
+#                              mean(ratio_maxOD[[condition]][[Strain_name]]), 
+#                              mean_maxOD))
 
 
 str(test)
