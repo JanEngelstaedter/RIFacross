@@ -11,6 +11,7 @@ library(varhandle)
 library(ggpubr)
 library(brms)
 library(broom)
+library(tidybayes)
 
 source("./R/plotting.R")
 source("./R/util.R")
@@ -198,13 +199,15 @@ pleioParms <- read_csv("./output/growth_parameters_pleiotropy.csv")
 parms <- read_csv("./output/growth_parameters_h20.csv")
 conditions <- read_csv("./data/conditions_key.csv")
 
-
+#combine all replicates in the absence of antibiotics 
 parms_0 <- parms %>% filter(RIFconc == 0 ) %>% 
   filter(!is.na(Strain))
 
-
 parms_all <- bind_rows(pleioParms, parms_0) %>% select(-c(RIFconc, Replicate))
 
+
+
+#remove this when nas are editted upstream
 parms_all$mumax[is.na(parms_all$mumax)] <- 0 
 
 
@@ -217,11 +220,6 @@ fit_mumax <- c()
 maxOD <- c()
 mumax <- c()
 
-
-# #post_summaries <- pleioParms |>
-#   distinct(Species, New_name, SetTemperature) |>
-#   mutate(mean_maxOD = NA, mean_mumax = NA) |>
-#   arrange(Species, SetTemperature)
 
 for (i in 1:nrow(conditions)) {
   dat <- parms_all %>% 
@@ -250,37 +248,59 @@ for (i in 1:nrow(conditions)) {
   
   for(j in 1:nrow(Strains)){
     Strain_name <- paste0("b_New_name", Strains$New_name[j])
-    posterior_mut_maxOD <- as_draws_df(fit_maxOD[[condition]]) %>% pull(Strain_name) 
+    posterior_mut_maxOD <- as_draws_df(fit_maxOD[[condition]]) %>% pull(Strain_name)
     posterior_mut_mumax <- as_draws_df(fit_mumax[[condition]]) %>% pull(Strain_name) 
     
     ratio_maxOD[[condition]][[Strain_name]]<- (posterior_WT_maxOD + posterior_mut_maxOD) / posterior_WT_maxOD
     ratio_mumax[[condition]][[Strain_name]]<- (posterior_WT_mumax + posterior_mut_mumax) / posterior_WT_mumax
     
-    maxOD[[condition]][[Strain_name]] <- mean(ratio_maxOD[[condition]][[Strain_name]])# add HDI here!
-    mumax[[condition]][[Strain_name]] <- mean(ratio_mumax[[condition]][[Strain_name]])
+    maxOD[[condition]][[Strain_name]] <- mean_hdi(ratio_maxOD[[condition]][[Strain_name]])# add HDI here!
+    mumax[[condition]][[Strain_name]] <- mean_hdi(ratio_mumax[[condition]][[Strain_name]])
     
     
   }
   
 }
 
-save(maxOD, file = "./output/brms_maxOD.RData")
-save(mumax, file = "./output/brms_mumax.RData")
+t_OD <- enframe(maxOD, name = "Condition", value = "relative_maxOD") %>% 
+  unnest_longer(relative_maxOD, indices_to = "mutant")%>% 
+  unnest(relative_maxOD) %>% 
+  rename_with(~ paste("relative_maxOD", ., sep = "_"), -c(Condition, mutant))
+
+t_mu <- enframe(mumax, name = "Condition", value = "relative_mumax") %>% 
+  unnest_longer(relative_mumax, indices_to = "mutant")%>% 
+  unnest(relative_mumax) %>% 
+  rename_with(~ paste("relative_mumax", ., sep = "_"), -c(Condition, mutant))
 
 
-# post_summaries <- parms_all |>
-#   distinct(Species, New_name, SetTemperature) |>
-#   mutate(mean_maxOD = NA, mean_mumax = NA) |>
-#   arrange(Species, SetTemperature)
+rel_parms <- left_join(t_OD, t_mu, by= c("mutant", "Condition"))
+rel_parms <- left_join(rel_parms, conditions, by = "Condition") %>% 
+  select(Species, Temperature, Condition, mutant, 
+         relative_maxOD_y, relative_maxOD_ymin, relative_maxOD_ymax,
+         relative_mumax_y, relative_mumax_ymin, relative_mumax_ymax
+         ) %>% 
+  mutate(mutant = str_replace(mutant, "b_New_name", ""))
+
+write_csv(rel_parms,"./output/bayesian_relative_parameters.csv" )
+
+
+library(ggplot2)
+
+ggplot(rel_parms, aes(x=relative_maxOD_y, y=relative_mumax_y, col=Condition))+
+  geom_point()+
+  geom_vline(xintercept = 1, color = "red", linetype = "dashed")+
+  geom_hline(yintercept = 1, color = "red", linetype = "dashed")+
+  stat_ellipse()
+
 
 
 
 ######TO DO 
 
 #get rid of 37deg baylyi strain replicates that didn't grow (probably should do this in step 3)
-#add in HDI - need to editpost_summaries too 
-#make the end dataframe nicer
-#edit name of mutants to just be eg L533P
+#get relative WT and include HDI
+#figure out if it needs to be in a wide format for the graphs 
+
 
 
 

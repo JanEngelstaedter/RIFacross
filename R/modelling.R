@@ -234,48 +234,56 @@ pleioParms[is.na(pleioParms)] <- 0 #for the entire dataset, need to figure out h
 
 dat <- c()
 ratio_maxOD <- c()
-ratio_mumax <- c()
+#ratio_mumax <- c()
 Strain_name <- c()
 fit_maxOD <- c()
-fit_mumax <- c()
+#fit_mumax <- c()
 maxOD <- c()
-mumax <- c()
+#mumax <- c()
+
+
+post_summaries <- pleioParms |>
+  distinct(Species, New_name, SetTemperature) |>
+  mutate(mean_maxOD = NA, mean_mumax = NA) |>
+  arrange(Species, SetTemperature)
 
 for (i in 1:nrow(conditions)) {
-  dat <- pleioParms %>% 
-    filter(pleioParms$Species== conditions$Species[[i]]) 
+  dat <- parms_all %>% 
+    filter(parms_all$Species== conditions$Species[[i]]) 
   
   dat <- dat %>% 
     filter(dat$SetTemperature == conditions$Temperature[[i]])%>% 
-    mutate(AA_mut_name_Ecoli = fct_relevel(factor(AA_mut_name_Ecoli), "WT")) 
+    mutate(New_name = fct_relevel(factor(New_name), "WT")) 
   
-  Strains <- data.frame(AA_mut_name_Ecoli = unique(dat$AA_mut_name_Ecoli)) %>% filter(AA_mut_name_Ecoli != "WT")
+  Strains <- data.frame(New_name = unique(dat$New_name)) %>% filter(New_name != "WT")
   
   #calculate parameters
   cat(paste0(">>> Working on ", conditions$Species[i]," in ", conditions$Temperature[i]," degrees C " , "\n"))
   condition <- conditions$Condition[i]
   
-  fit_maxOD[[condition]] <- brm(maxOD ~ AA_mut_name_Ecoli, data = dat)
-  fit_mumax[[condition]] <- brm(mumax ~ AA_mut_name_Ecoli, data = dat)
+  fit_maxOD[[condition]] <- brm(maxOD ~ New_name, data = dat)
+  #fit_mumax[[condition]] <- brm(mumax ~ New_name, data = dat)
   
   
   posterior_WT_maxOD <- as_draws_df(fit_maxOD[[condition]])%>% pull(b_Intercept)
-  posterior_WT_mumax <- as_draws_df(fit_mumax[[condition]])%>% pull(b_Intercept)
+  #posterior_WT_mumax <- as_draws_df(fit_mumax[[condition]])%>% pull(b_Intercept)
     
   
   #if statement to get relative WT? need to make the name for b_intercept the same as the WT? or the WT the same as the b_intercept?
   
   
-  for(i in 2:nrow(Strains)){
-      Strain_name <- paste0("b_AA_mut_name_Ecoli", Strains$AA_mut_name_Ecoli[i])
+  for(j in 1:nrow(Strains)){
+      Strain_name <- paste0("b_New_name", Strains$New_name[j])
       posterior_mut_maxOD <- as_draws_df(fit_maxOD[[condition]]) %>% pull(Strain_name) 
-      posterior_mut_mumax <- as_draws_df(fit_mumax[[condition]]) %>% pull(Strain_name) 
+     # posterior_mut_mumax <- as_draws_df(fit_mumax[[condition]]) %>% pull(Strain_name) 
         
       ratio_maxOD[[condition]][[Strain_name]]<- (posterior_WT_maxOD + posterior_mut_maxOD) / posterior_WT_maxOD
-      ratio_mumax[[condition]][[Strain_name]]<- (posterior_WT_mumax + posterior_mut_mumax) / posterior_WT_mumax
+      #ratio_mumax[[condition]][[Strain_name]]<- (posterior_WT_mumax + posterior_mut_mumax) / posterior_WT_mumax
   
       maxOD[[condition]][[Strain_name]] <- mean(ratio_maxOD[[condition]][[Strain_name]])# add HDI here!
-      mumax[[condition]][[Strain_name]] <- mean(ratio_mumax[[condition]][[Strain_name]])
+      #mumax[[condition]][[Strain_name]] <- mean(ratio_mumax[[condition]][[Strain_name]])
+      
+
   }
   
   }
