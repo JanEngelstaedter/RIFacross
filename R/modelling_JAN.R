@@ -66,14 +66,34 @@ pleioParms <- read.csv("./output/growth_parameters_pleiotropy.csv")
 
 #get one condition, set the level 
 Testmuts <- pleioParms %>% 
-  filter(Species == "Escherichia coli") +
+  filter(Species == "Escherichia coli") %>% 
   mutate(AA_mut_name_Ecoli = fct_relevel(factor(AA_mut_name_Ecoli), "WT")) 
 
 #fit the model to all the replicates to get the mean and posteriors
 fit <- brm(maxOD ~ AA_mut_name_Ecoli, data = Testmuts)
+
+
+posterior_WT <- as_draws_df(fit) %>% pull(b_Intercept)
+posterior_mut <- as_draws_df(fit) %>% pull(b_AA_mut_name_EcolirpoB_I572L)
+
+ratio_mut_WT_maxod <- (posterior_WT + posterior_mut) / posterior_WT
+hist(ratio_mut_WT_maxod)
+
+mean(ratio_mut_WT_maxod )
+
+mean_hdi(ratio_mut_WT_maxod)
+
+
 summary(fit)
 tidy(fixef(fit))
 plot(fit)
+
+
+
+
+
+
+
 
 
 

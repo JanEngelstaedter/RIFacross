@@ -12,6 +12,7 @@ library(ggpubr)
 library(brms)
 library(broom)
 library(tidybayes)
+library(ggrepel)
 
 source("./R/plotting.R")
 source("./R/util.R")
@@ -254,7 +255,7 @@ for (i in 1:nrow(conditions)) {
     ratio_maxOD[[condition]][[Strain_name]]<- (posterior_WT_maxOD + posterior_mut_maxOD) / posterior_WT_maxOD
     ratio_mumax[[condition]][[Strain_name]]<- (posterior_WT_mumax + posterior_mut_mumax) / posterior_WT_mumax
     
-    maxOD[[condition]][[Strain_name]] <- mean_hdi(ratio_maxOD[[condition]][[Strain_name]])# add HDI here!
+    maxOD[[condition]][[Strain_name]] <- mean_hdi(ratio_maxOD[[condition]][[Strain_name]])
     mumax[[condition]][[Strain_name]] <- mean_hdi(ratio_mumax[[condition]][[Strain_name]])
     
     
@@ -283,14 +284,16 @@ rel_parms <- left_join(rel_parms, conditions, by = "Condition") %>%
 
 write_csv(rel_parms,"./output/bayesian_relative_parameters.csv" )
 
+#wide dataframe for graphing
+wide <- rel_parms %>% select( Condition , mutant, 
+                             relative_maxOD_y, relative_maxOD_ymin, relative_maxOD_ymax,
+                             relative_mumax_y, relative_mumax_ymin, relative_mumax_ymax
+)
+wide <- pivot_wider(wide,  names_from = Condition, values_from = c(relative_maxOD_y, relative_maxOD_ymin, relative_maxOD_ymax,
+                                                                relative_mumax_y, relative_mumax_ymin, relative_mumax_ymax))
+write_csv(wide,"./output/bayesian_relative_parameters_wide.csv" )
 
-library(ggplot2)
 
-ggplot(rel_parms, aes(x=relative_maxOD_y, y=relative_mumax_y, col=Condition))+
-  geom_point()+
-  geom_vline(xintercept = 1, color = "red", linetype = "dashed")+
-  geom_hline(yintercept = 1, color = "red", linetype = "dashed")+
-  stat_ellipse()
 
 
 
@@ -299,8 +302,6 @@ ggplot(rel_parms, aes(x=relative_maxOD_y, y=relative_mumax_y, col=Condition))+
 
 #get rid of 37deg baylyi strain replicates that didn't grow (probably should do this in step 3)
 #get relative WT and include HDI
-#figure out if it needs to be in a wide format for the graphs 
-
 
 
 
@@ -342,65 +343,101 @@ write_csv(MICs, "./output/MICs.csv")
 
 maxOD_mod <- brm(maxOD ~ AA_mut_name_Ecoli*Species + 
              SetTemperature*Species + 
-             AA_mut_name_Ecoli*SetTemperature, data = #maxOD_nonneg)
+             AA_mut_name_Ecoli*SetTemperature, data = maxOD_nonneg)
 summary(maxOD_mod)
 plot(maxOD_mod)
 
 mumax_mod <- brm(mumax ~ AA_mut_name_Ecoli*Species + 
                    SetTemperature*Species + 
-                   AA_mut_name_Ecoli*SetTemperature, data = #maxOD_nonneg)
+                   AA_mut_name_Ecoli*SetTemperature, data = maxOD_nonneg)
 summary(mumax_mod)
 plot(mumax_mod)
 
 
 # Fig 1: pleiotropy scatterplots                        ----
 # __________________________________________________________
-#input=  
-#output= 
+#input=  bayesian_relative_parameters_wide.csv
+#output= pleiotropy graphs 
 
-#previous code
+wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
 
-pleio_mumax <- ggplot(wide, aes(x= mean_mumax_30 , y= mean_mumax_37))+
-  geom_point(aes(col= Species))+
+
+
+
+library(ggrepel)
+#pleiotropy E. coli for 2 parameters at 2 temperatures
+
+#mumax
+pleio_mumax_EC <- ggplot(wide, aes(x= relative_mumax_y_EC30 , y=relative_mumax_y_EC37))+
+  geom_point()+
   theme_classic()+
-  labs(title = "mumax", x= "30 degrees C" , y= "37 degrees C")+
+  labs(title = "mumax E.coli", x= "30 degrees C" , y= "37 degrees C")+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
-  geom_errorbarh(aes(xmin= mean_mumax_30 - SE_mumax_30,
-                     xmax= mean_mumax_30 + SE_mumax_30, 
-                     col= Species)
+  geom_errorbarh(aes(xmin= relative_mumax_ymin_EC30,
+                     xmax= relative_mumax_ymax_EC30)
   )+
-  geom_errorbar(aes(ymin= mean_mumax_37 - SE_mumax_37,
-                    ymax= mean_mumax_37 + SE_mumax_37, 
-                    col= Species)
+  geom_errorbar(aes(ymin= relative_mumax_ymin_EC37,
+                    ymax= relative_mumax_ymax_EC37)
   )+
-  geom_text_repel(aes(label= New_name ))
+  geom_text_repel(aes(label= mutant ))
 
 
-
-pleio_maxOD <- ggplot(wide, aes(x= mean_maxOD_30 , y= mean_maxOD_37))+
-  geom_point(aes(col= Species))+
+#maxOD
+pleio_maxOD_EC <- ggplot(wide, aes(x= relative_maxOD_y_EC30 , y=relative_maxOD_y_EC37))+
+  geom_point()+
   theme_classic()+
-  labs(title = "maxOD", x= "30 degrees C" , y= "37 degrees C")+
+  labs(title = "maxOD E.coli", x= "30 degrees C" , y= "37 degrees C")+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
-  geom_errorbarh(aes(xmin= mean_maxOD_30 - SE_maxOD_30,
-                     xmax= mean_maxOD_30 + SE_maxOD_30, 
-                     col= Species)
+  geom_errorbarh(aes(xmin= relative_maxOD_ymin_EC30,
+                     xmax= relative_maxOD_ymax_EC30)
   )+
-  geom_errorbar(aes(ymin= mean_maxOD_37 - SE_maxOD_37,
-                    ymax= mean_maxOD_37 + SE_maxOD_37, 
-                    col= Species)
+  geom_errorbar(aes(ymin= relative_maxOD_ymin_EC37,
+                    ymax= relative_maxOD_ymax_EC37)
   )+
-  geom_text_repel(aes(label= New_name ))
+  geom_text_repel(aes(label= mutant ))
+
+
+#pleiotropy A. baylyi for 2 parameters at 2 temperatures
+
+#mumax
+pleio_mumax_AB <- ggplot(wide, aes(x= relative_mumax_y_AB30 , y=relative_mumax_y_AB37))+
+  geom_point()+
+  theme_classic()+
+  labs(title = "mumax A. baylyi", x= "30 degrees C" , y= "37 degrees C")+
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
+  geom_errorbarh(aes(xmin= relative_mumax_ymin_AB30,
+                     xmax= relative_mumax_ymax_AB30)
+  )+
+  geom_errorbar(aes(ymin= relative_mumax_ymin_AB37,
+                    ymax= relative_mumax_ymax_AB37)
+  )+
+  geom_text_repel(aes(label= mutant ))
+
+
+#maxOD
+pleio_maxOD_AB <- ggplot(wide, aes(x= relative_maxOD_y_AB30 , y=relative_maxOD_y_AB37))+
+  geom_point()+
+  theme_classic()+
+  labs(title = "maxOD A. baylyi", x= "30 degrees C" , y= "37 degrees C")+
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
+  geom_errorbarh(aes(xmin= relative_maxOD_ymin_AB30,
+                     xmax= relative_maxOD_ymax_AB30)
+  )+
+  geom_errorbar(aes(ymin= relative_maxOD_ymin_AB37,
+                    ymax= relative_maxOD_ymax_AB37)
+  )+
+  geom_text_repel(aes(label= mutant ))
 
 
 
-pleio_temp <- ggarrange(pleio_mumax, pleio_maxOD, 
-                        ncol = 1, nrow = 2)
+
+#pleio_temp <- ggarrange(pleio_mumax, pleio_maxOD, 
+           #             ncol = 1, nrow = 2)
 
 
-ggexport(pleio_temp, filename = "./plots/pleiotropy_scatter.pdf", 
-         width = 15, 
-         height = 15)
+#ggexport(pleio_temp, filename = "./plots/pleiotropy_scatter.pdf", 
+    #     width = 15, 
+     #    height = 15)
 
 
 
