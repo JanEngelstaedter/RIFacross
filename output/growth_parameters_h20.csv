@@ -1,4 +1,4 @@
-Project_ID,Species,Strain,Nt_mut_name,Nt_mut_name_Ecoli,AA_mut_name,AA_mut_name_Ecoli,SetTemperature,RIFconc,Replicate,mumax,r2,maxOD,AA_pos,New_name
+Project_ID,Species,Strain,Nt_mut_name,Nt_mut_name_Ecoli,AA_mut_name,AA_mut_name_Ecoli,SetTemperature,RIFconc,Replicate,mumax,r2,maxOD,AA_pos,rpoB
 A_baylyi_Ian,Acinetobacter baylyi,RM25,rpoB_T443G,rpoB_T437G,rpoB_V148G,rpoB_V146G,30,0,1,0.013401069547560754,0.9987584788436481,0.58325,146,V146G
 A_baylyi_Ian,Acinetobacter baylyi,RM25,rpoB_T443G,rpoB_T437G,rpoB_V148G,rpoB_V146G,30,0,1,0.013831795045372606,0.9991436675663607,0.58625,146,V146G
 A_baylyi_Ian,Acinetobacter baylyi,RM25,rpoB_T443G,rpoB_T437G,rpoB_V148G,rpoB_V146G,30,0,1,0.013497513144705441,0.9992321936076396,0.57425,146,V146G

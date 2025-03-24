@@ -13,6 +13,7 @@ library(brms)
 library(broom)
 library(tidybayes)
 library(ggrepel)
+library(patchwork)
 
 source("./R/plotting.R")
 source("./R/util.R")
@@ -74,7 +75,7 @@ rm.all()
 
 # Step 2: Add genetic information to data               ----
 # __________________________________________________________
-#input= analysis_h20.RData and genetic data from Google Sheet
+#input= analysis_h20.RData and genetic data
 #output= growth parameters with corresponding mutation (growth_parameters_h20.csv)
 
 projects <- read_csv("./data/global_key.csv")
@@ -92,13 +93,13 @@ for(i in 1:nrow(projects)) {
 muts <- read_csv("./data/Genetic_data/muts.csv")
 muts_Edward <- read_csv("./data/Genetic_data/Edward_mutants.csv") |>
   filter(!is.na(Strain_Name)) |>
-  mutate(New_name = str_replace(AA_mut_name_Ecoli, "rpoB_", ""))
+  mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", ""))
 muts_Edward_lookup <- muts_Edward$Strain_Name
-names(muts_Edward_lookup) <- muts_Edward$New_name
+names(muts_Edward_lookup) <- muts_Edward$rpoB
 
 # attach rpoB mutations to growth parameters:
 parms <- parms |>
-  # standardise names for suseptible wildtype:
+  # standardise names for susceptible wildtype:
   mutate(Strain = ifelse(Strain %in% c("AB3", "MG1655", "Wild Type"), 
                          "WT", Strain)) |>
   # fix Edward's strain names:
@@ -114,10 +115,10 @@ parms <- parms |>
 
 parms$AA_pos <- as.numeric(gsub("[^0-9]","", parms$AA_mut_name_Ecoli))
 parms <- parms %>% arrange(AA_pos) %>% 
-  mutate(New_name = str_replace(AA_mut_name_Ecoli, "rpoB_", "")) %>% 
+  mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", "")) %>% 
   filter(!(Species == "Acinetobacter baylyi" & (Strain %in% c("RM08", "RM15")))) # remove two mutants that are the same as RM10 and RM12
-parms$New_name[parms$Nt_mut_name =="rpoB_dup1611"] <- "dup1611"
-parms$New_name[parms$Strain =="WT"] <- "WT"
+parms$rpoB[parms$Nt_mut_name =="rpoB_dup1611"] <- "dup1611"
+parms$rpoB[parms$Strain =="WT"] <- "WT"
 
 write_csv(parms, "./output/growth_parameters_h20.csv")
 
@@ -165,6 +166,11 @@ projects <- read_csv("./data/global_key.csv")
 projects <- projects %>%  filter(Project_ID== "A_baylyi_Ian" | Project_ID == "E_coli_Alicia")
 load("./output/analysis_pleiotropy.RData")
 
+#remove A. baylyi replicates that didn't grow at 37degrees
+analysis$A_baylyi_Ian$pars <- analysis$A_baylyi_Ian$pars %>% 
+  filter(!(Date == "20/09/2024" & Strain %in% c("RM14", "RM02", "R24")))
+
+
 pleioParms <- NULL
 # turn analysis list into single data frame:
 for(i in 1:nrow(projects)) {
@@ -187,13 +193,18 @@ pleioParms$AA_pos <- as.numeric(gsub("[^0-9]","", pleioParms$AA_mut_name_Ecoli))
 pleioParms <- pleioParms %>% arrange(AA_pos) 
 pleioParms$AA_mut_name_Ecoli[pleioParms$Strain =="WT"] <- "WT"
 
+pleioParms <- pleioParms %>%
+  mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", "")) 
+pleioParms$rpoB[pleioParms$Strain =="WT"] <- "WT"
+
+
 write_csv(pleioParms, "./output/growth_parameters_pleiotropy.csv")
 
 
 # Step 4: Bayesian modelling of parameters              ----
 # __________________________________________________________
 #input= growth_parameters_pleiotropy.csv and growth_parameters_h20.csv
-#output= 
+#output= Bayesian relative parameters bayesian_relative_parameters.csv, also in wide format
 
 
 pleioParms <- read_csv("./output/growth_parameters_pleiotropy.csv")
@@ -205,7 +216,7 @@ parms_0 <- parms %>% filter(RIFconc == 0 ) %>%
   filter(!is.na(Strain))
 
 parms_all <- bind_rows(pleioParms, parms_0) %>% select(-c(RIFconc, Replicate))
-
+write_csv(parms_all,"./output/combined_parms_absence_antibiotics.csv" )
 
 
 #remove this when nas are editted upstream
@@ -228,16 +239,16 @@ for (i in 1:nrow(conditions)) {
   
   dat <- dat %>% 
     filter(dat$SetTemperature == conditions$Temperature[[i]])%>% 
-    mutate(New_name = fct_relevel(factor(New_name), "WT")) 
+    mutate(rpoB = fct_relevel(factor(rpoB), "WT")) 
   
-  Strains <- data.frame(New_name = unique(dat$New_name)) %>% filter(New_name != "WT")
+  Strains <- data.frame(rpoB = unique(dat$rpoB)) %>% filter(rpoB != "WT")
   
   #calculate parameters
   cat(paste0(">>> Working on ", conditions$Species[i]," in ", conditions$Temperature[i]," degrees C " , "\n"))
   condition <- conditions$Condition[i]
   
-  fit_maxOD[[condition]] <- brm(maxOD ~ New_name, data = dat)
-  fit_mumax[[condition]] <- brm(mumax ~ New_name, data = dat)
+  fit_maxOD[[condition]] <- brm(maxOD ~ rpoB, data = dat)
+  fit_mumax[[condition]] <- brm(mumax ~ rpoB, data = dat)
   
   
   posterior_WT_maxOD <- as_draws_df(fit_maxOD[[condition]])%>% pull(b_Intercept)
@@ -248,7 +259,7 @@ for (i in 1:nrow(conditions)) {
   
   
   for(j in 1:nrow(Strains)){
-    Strain_name <- paste0("b_New_name", Strains$New_name[j])
+    Strain_name <- paste0("b_rpoB", Strains$rpoB[j])
     posterior_mut_maxOD <- as_draws_df(fit_maxOD[[condition]]) %>% pull(Strain_name)
     posterior_mut_mumax <- as_draws_df(fit_mumax[[condition]]) %>% pull(Strain_name) 
     
@@ -264,28 +275,28 @@ for (i in 1:nrow(conditions)) {
 }
 
 t_OD <- enframe(maxOD, name = "Condition", value = "relative_maxOD") %>% 
-  unnest_longer(relative_maxOD, indices_to = "mutant")%>% 
+  unnest_longer(relative_maxOD, indices_to = "rpoB")%>% 
   unnest(relative_maxOD) %>% 
-  rename_with(~ paste("relative_maxOD", ., sep = "_"), -c(Condition, mutant))
+  rename_with(~ paste("relative_maxOD", ., sep = "_"), -c(Condition, rpoB))
 
 t_mu <- enframe(mumax, name = "Condition", value = "relative_mumax") %>% 
-  unnest_longer(relative_mumax, indices_to = "mutant")%>% 
+  unnest_longer(relative_mumax, indices_to = "rpoB")%>% 
   unnest(relative_mumax) %>% 
-  rename_with(~ paste("relative_mumax", ., sep = "_"), -c(Condition, mutant))
+  rename_with(~ paste("relative_mumax", ., sep = "_"), -c(Condition, rpoB))
 
 
-rel_parms <- left_join(t_OD, t_mu, by= c("mutant", "Condition"))
+rel_parms <- left_join(t_OD, t_mu, by= c("rpoB", "Condition"))
 rel_parms <- left_join(rel_parms, conditions, by = "Condition") %>% 
-  select(Species, Temperature, Condition, mutant, 
+  select(Species, Temperature, Condition, rpoB, 
          relative_maxOD_y, relative_maxOD_ymin, relative_maxOD_ymax,
          relative_mumax_y, relative_mumax_ymin, relative_mumax_ymax
          ) %>% 
-  mutate(mutant = str_replace(mutant, "b_New_name", ""))
+  mutate(rpoB = str_replace(rpoB, "b_rpoB", ""))
 
 write_csv(rel_parms,"./output/bayesian_relative_parameters.csv" )
 
 #wide dataframe for graphing
-wide <- rel_parms %>% select( Condition , mutant, 
+wide <- rel_parms %>% select( Condition , rpoB, 
                              relative_maxOD_y, relative_maxOD_ymin, relative_maxOD_ymax,
                              relative_mumax_y, relative_mumax_ymin, relative_mumax_ymax
 )
@@ -294,14 +305,6 @@ wide <- pivot_wider(wide,  names_from = Condition, values_from = c(relative_maxO
 write_csv(wide,"./output/bayesian_relative_parameters_wide.csv" )
 
 
-
-
-
-
-######TO DO 
-
-#get rid of 37deg baylyi strain replicates that didn't grow (probably should do this in step 3)
-#get relative WT and include HDI
 
 
 
@@ -325,7 +328,7 @@ WT_MIC <- setNames(WT$MIC,WT$Species)
 MICs <- MICs %>% mutate(xfold=MIC/WT_MIC[Species])
 
 MICs <- MICs %>% 
-  mutate(New_name = str_replace(AA_mut_name_Ecoli, "rpoB_", ""))
+  mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", ""))
 
 write_csv(MICs, "./output/MICs.csv")
 
@@ -333,38 +336,54 @@ write_csv(MICs, "./output/MICs.csv")
 
 # Step 6: Epistasis and pleiotropy model                ----
 # __________________________________________________________
-#input=  
-#output= 
+#input=  parameters in the absence of antibiotics
+#output= brms model of epistasis and pleiotropy
 
-#read combined df from step 4
-#find overlapping Ecoli and Abaylyi mutations 
-#filter so Rifconc=0, not Lplantarum and the mutants are only the overlap
+
+parms_all <-  read_csv("./output/combined_parms_absence_antibiotics.csv" )
+
+#find overlapping mutations 
+overlapping <- parms_all %>% 
+  filter(Species != "Lactiplantibacillus plantarum") %>% 
+  distinct(Species, rpoB, Strain) %>% 
+  pivot_wider(names_from = Species, values_from = Strain) %>% 
+  drop_na("Acinetobacter baylyi") %>% 
+  drop_na("Escherichia coli")
+
+overlap <- unique(overlapping$rpoB)
+
+pleio_mod <- parms_all %>% 
+  filter(rpoB %in% overlap)
+
+dat_maxOD <- pleio_mod %>% 
+  select(c(Species, AA_mut_name_Ecoli, SetTemperature, maxOD))
+dat_mumax <- pleio_mod %>% 
+  select(c(Species, AA_mut_name_Ecoli, SetTemperature, mumax))
 
 
 maxOD_mod <- brm(maxOD ~ AA_mut_name_Ecoli*Species + 
              SetTemperature*Species + 
-             AA_mut_name_Ecoli*SetTemperature, data = maxOD_nonneg)
+             AA_mut_name_Ecoli*SetTemperature, data = dat_maxOD)
 summary(maxOD_mod)
 plot(maxOD_mod)
 
 mumax_mod <- brm(mumax ~ AA_mut_name_Ecoli*Species + 
                    SetTemperature*Species + 
-                   AA_mut_name_Ecoli*SetTemperature, data = maxOD_nonneg)
+                   AA_mut_name_Ecoli*SetTemperature, data = dat_mumax)
 summary(mumax_mod)
 plot(mumax_mod)
 
 
+
 # Fig 1: pleiotropy scatterplots                        ----
 # __________________________________________________________
-#input=  bayesian_relative_parameters_wide.csv
+#input=  Bayesian relative parameters
 #output= pleiotropy graphs 
 
 wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
 
 
 
-
-library(ggrepel)
 #pleiotropy E. coli for 2 parameters at 2 temperatures
 
 #mumax
@@ -430,14 +449,7 @@ pleio_maxOD_AB <- ggplot(wide, aes(x= relative_maxOD_y_AB30 , y=relative_maxOD_y
 
 
 
-
-#pleio_temp <- ggarrange(pleio_mumax, pleio_maxOD, 
-           #             ncol = 1, nrow = 2)
-
-
-#ggexport(pleio_temp, filename = "./plots/pleiotropy_scatter.pdf", 
-    #     width = 15, 
-     #    height = 15)
+(pleio_mumax_EC + pleio_maxOD_EC)/(pleio_mumax_AB + pleio_maxOD_AB)
 
 
 
@@ -448,29 +460,33 @@ pleio_maxOD_AB <- ggplot(wide, aes(x= relative_maxOD_y_AB30 , y=relative_maxOD_y
 
 # Fig 2: log transformed pleiotropy                     ----
 # __________________________________________________________
-#input=  
+#input=  Bayesian relative parameters 
 #output= 
 
-#previous test code 
+wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
 
-test <- pleiowide %>% mutate(Ec_mumax_transformed = 
-                               log2(mean_mumax_37_Escherichia.coli/mean_mumax_30_Escherichia.coli))
+transformed_Ec <- wide %>% mutate(Ec_mumax_transformed = 
+                               log2(relative_mumax_y_EC37/relative_mumax_y_EC30)) %>% 
+                            mutate(Ec_maxOD_transformed = 
+                               log2(relative_maxOD_y_EC37/relative_maxOD_y_EC30))
 
-test <- test %>% mutate(Ec_maxOD_transformed = 
-                          log2(mean_maxOD_37_Escherichia.coli/mean_maxOD_30_Escherichia.coli))
 
-transformed_Ec <- ggplot(test, aes(Ec_mumax_transformed, Ec_maxOD_transformed)) +
+
+####get WT relative parameters?
+mu_wt_Ec <- log2(1/1)
+od_wt_Ec <- log2(1/1)
+
+
+transformed_Ec_graph <- ggplot(transformed_Ec, aes(Ec_mumax_transformed, Ec_maxOD_transformed)) +
   geom_point()+
-  geom_vline(xintercept = mu_wt, linetype = "dashed", color = "blue") +
-  geom_hline(yintercept = od_wt, linetype = "dashed", color = "blue") +
+  theme_classic()+
   labs(title = "E. coli", 
        x = "mumax",
-       y = "maxOD") 
+       y = "maxOD")+
+ geom_vline(xintercept = mu_wt_Ec, linetype = "dashed", color = "blue") +
+ geom_hline(yintercept = od_wt_Ec, linetype = "dashed", color = "blue") 
+ 
 
-
-wt_values <- test %>% filter(AA_mut_name_Ecoli == "WT")
-mu_wt <- wt_values$Ec_mumax_transformed
-od_wt <- wt_values$Ec_maxOD_transformed
 
 
 test <- test %>% mutate(Ab_mumax_transformed = 
@@ -495,8 +511,10 @@ transformed_Ab <- ggplot(test %>% filter(AA_mut_name_Ecoli != "rpoB_S512P"), aes
 
 # Fig 3: epistasis parameter scatterplots               ----
 # __________________________________________________________
-#input=  
+#input=  Bayesian relative parameters
 #output= 
+
+wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
 
 
 #previous code
@@ -505,68 +523,107 @@ transformed_Ab <- ggplot(test %>% filter(AA_mut_name_Ecoli != "rpoB_S512P"), aes
 #make sure all are on the same axes and labels are readable
 #add in vertical and horizonal lines to mark the quandrants?
 
-ecab_mu<- ggplot(meanwide, aes(x=relative_mumax_Escherichia.coli, 
-                               y=relative_mumax_Acinetobacter.baylyi, 
-                               label=AA_mut_name_Ecoli))+
+ecab_mu <- ggplot(wide, aes(x=relative_mumax_y_EC37, 
+                               y=relative_mumax_y_AB30, 
+                               label=mutant))+
   geom_point() +
   geom_text(hjust=0, vjust=0)+
-  labs(title = "E.coli v A.baylyi mumax")
+  labs(title = "E.coli v A.baylyi mumax")+
+  theme_classic() +
+  geom_errorbarh(aes(xmin= relative_mumax_ymin_EC37,
+                     xmax= relative_mumax_ymax_EC37)
+  )+
+  geom_errorbar(aes(ymin= relative_mumax_ymin_AB30,
+                    ymax= relative_mumax_ymax_AB30)
+  )
 
 
-ecab_OD <- ggplot(meanwide, aes(x=relative_maxOD_Escherichia.coli,
-                                y=relative_maxOD_Acinetobacter.baylyi, 
-                                label=AA_mut_name_Ecoli))+
+
+ecab_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37, 
+                            y=relative_maxOD_y_AB30, 
+                            label=mutant))+
   geom_point()+
   geom_text(hjust=0, vjust=0)+
-  labs(title = "E.coli v A.baylyi maxOD")
+  labs(title = "E.coli v A.baylyi maxOD")+
+  theme_classic() +
+  geom_errorbarh(aes(xmin= relative_maxOD_ymin_EC37,
+                     xmax= relative_maxOD_ymax_EC37)
+  )+
+  geom_errorbar(aes(ymin= relative_maxOD_ymin_AB30,
+                    ymax= relative_maxOD_ymax_AB30)
+  )
 
 
 
 
 #L.plantarum v A.baylyi
-lpab_mu <- ggplot(meanwide, aes(x=relative_mumax_Lactiplantibacillus.plantarum, 
-                                y=relative_mumax_Acinetobacter.baylyi, 
-                                label=AA_mut_name_Ecoli))+
+lpab_mu <- ggplot(wide, aes(x=relative_mumax_y_LP30, 
+                            y=relative_mumax_y_AB30, 
+                            label=mutant))+
   geom_point() +
   geom_text(hjust=0, vjust=0)+
-  labs(title = "L.plantarum v A.baylyi mumax")
+  labs(title = "L. plantarum v A.baylyi maxOD")+
+  theme_classic() +
+  geom_errorbarh(aes(xmin= relative_mumax_ymin_LP30,
+                     xmax= relative_mumax_ymax_LP30)
+  )+
+  geom_errorbar(aes(ymin= relative_mumax_ymin_AB30,
+                    ymax= relative_mumax_ymax_AB30)
+  )
 
-lpab_OD <- ggplot(meanwide, aes(x=relative_maxOD_Lactiplantibacillus.plantarum,
-                                y=relative_maxOD_Acinetobacter.baylyi, 
-                                label=AA_mut_name_Ecoli))+
+
+
+lpab_OD <- ggplot(wide, aes(x=relative_maxOD_y_LP30, 
+                            y=relative_maxOD_y_AB30, 
+                            label=mutant))+
   geom_point() +
   geom_text(hjust=0, vjust=0)+
-  labs(title = "L.plantarum v A.baylyi maxOD")
+  labs(title = "L.plantarum v A.baylyi maxOD")+
+  theme_classic() +
+  geom_errorbarh(aes(xmin= relative_maxOD_ymin_LP30,
+                     xmax= relative_maxOD_ymax_LP30)
+  )+
+  geom_errorbar(aes(ymin= relative_maxOD_ymin_AB30,
+                    ymax= relative_maxOD_ymax_AB30)
+  )
+
+
 
 
 
 #E.coli v L.plantarum 
-eclp_mu<- ggplot(meanwide, aes(x=relative_mumax_Escherichia.coli,
-                               y=relative_mumax_Lactiplantibacillus.plantarum, 
-                               label=AA_mut_name_Ecoli))+
+eclp_mu<- ggplot(wide, aes(x=relative_mumax_y_EC37, 
+                           y=relative_mumax_y_LP30, 
+                           label=mutant))+
   geom_point() +
   geom_text(hjust=0, vjust=0)+
-  labs(title = "E.coli v L.planturum mumax")
+  labs(title = "E.coli v L.planturum mumax")+
+  theme_classic() +
+  geom_errorbarh(aes(xmin= relative_mumax_ymin_EC37,
+                     xmax= relative_mumax_ymax_EC37)
+  )+
+  geom_errorbar(aes(ymin= relative_mumax_ymin_LP30,
+                    ymax= relative_mumax_ymax_LP30)
+  )
 
 
-eclp_OD <- ggplot(meanwide, aes(x=relative_maxOD_Escherichia.coli, 
-                                y=relative_maxOD_Lactiplantibacillus.plantarum,
-                                label=AA_mut_name_Ecoli))+
+eclp_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37, 
+                            y=relative_maxOD_y_LP30, 
+                            label=mutant))+
   geom_point()+
   geom_text(hjust=0, vjust=0)+
-  labs(title = "E.coli v L.plantarum maxOD")
+  labs(title = "E.coli v L.plantarum maxOD")+
+  theme_classic() +
+  geom_errorbarh(aes(xmin= relative_maxOD_ymin_EC37,
+                     xmax= relative_maxOD_ymax_EC37)
+  )+
+  geom_errorbar(aes(ymin= relative_maxOD_ymin_LP30,
+                    ymax= relative_maxOD_ymax_LP30)
+  )
 
 
 
-fig_comp <- ggarrange(ecab_mu,lpab_mu, eclp_mu, 
-                      ecab_OD, lpab_OD, eclp_OD, 
-                      ecab_MIC, lpab_MIC, eclp_MIC,
-                      ncol=3, nrow=3)
-fig_comp
-
-ggexport(fig_comp, filename = "./plots/comparison_parameters.pdf")
-
-
+(ecab_mu + eclp_mu + lpab_mu)/ (ecab_OD + eclp_OD + lpab_OD)
 
 
 
@@ -584,7 +641,7 @@ ggexport(fig_comp, filename = "./plots/comparison_parameters.pdf")
 abmu <- parms %>% 
   filter(RIFconc==0) %>% 
   filter(Species =="Acinetobacter baylyi") %>% 
-  ggplot(aes(x=New_name, y=mumax))+
+  ggplot(aes(x=rpoB, y=mumax))+
   geom_boxplot(aes(alpha=0))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
   theme_classic()+ 
@@ -598,7 +655,7 @@ abmu <- parms %>%
 ecmu <- parms %>% 
   filter(RIFconc==0) %>% 
   filter(Species =="Escherichia coli") %>% 
-  ggplot(aes(x=New_name, y=mumax))+
+  ggplot(aes(x=rpoB, y=mumax))+
   geom_boxplot(aes(alpha=0))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
   theme_classic()+ 
@@ -612,7 +669,7 @@ ecmu <- parms %>%
 lpmu <- parms %>% 
   filter(RIFconc==0) %>% 
   filter(Species =="Lactiplantibacillus plantarum") %>% 
-  ggplot(aes(x=New_name, y=mumax))+
+  ggplot(aes(x=rpoB, y=mumax))+
   geom_boxplot(aes(alpha=0))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
   theme_classic()+ 
@@ -628,7 +685,7 @@ lpmu <- parms %>%
 abmaxOD <- parms %>% 
   filter(RIFconc==0) %>% 
   filter(Species =="Acinetobacter baylyi") %>% 
-  ggplot(aes(x=New_name, y=maxOD))+
+  ggplot(aes(x=rpoB, y=maxOD))+
   geom_boxplot(aes(alpha=0))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
   theme_classic()+ 
@@ -642,7 +699,7 @@ abmaxOD <- parms %>%
 ecmaxOD <- parms %>% 
   filter(RIFconc==0) %>% 
   filter(Species =="Escherichia coli") %>% 
-  ggplot(aes(x=New_name, y=maxOD))+
+  ggplot(aes(x=rpoB, y=maxOD))+
   geom_boxplot(aes(alpha=0))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
   theme_classic()+ 
@@ -656,7 +713,7 @@ ecmaxOD <- parms %>%
 lpmaxOD <- parms %>% 
   filter(RIFconc==0) %>% 
   filter(Species =="Lactiplantibacillus plantarum") %>% 
-  ggplot(aes(x=New_name, y=maxOD))+
+  ggplot(aes(x=rpoB, y=maxOD))+
   geom_boxplot(aes(alpha=0))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
   theme_classic()+ 
@@ -671,7 +728,7 @@ lpmaxOD <- parms %>%
 
 abMIC <- MICs %>% 
   filter(Species =="Acinetobacter baylyi") %>% 
-  ggplot(aes(x=New_name, y=MIC)) +
+  ggplot(aes(x=rpoB, y=MIC)) +
   geom_point()+
   theme_classic()+ 
   xlab("")+
@@ -681,7 +738,7 @@ abMIC <- MICs %>%
 
 ecMIC <- MICs %>% 
   filter(Species =="Escherichia coli") %>% 
-  ggplot(aes(x=New_name, y=MIC)) +
+  ggplot(aes(x=rpoB, y=MIC)) +
   geom_point()+
   theme_classic()+ 
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
@@ -691,7 +748,7 @@ ecMIC <- MICs %>%
 
 lpMIC <- MICs %>% 
   filter(Species =="Lactiplantibacillus plantarum") %>% 
-  ggplot(aes(x=New_name, y=MIC)) +
+  ggplot(aes(x=rpoB, y=MIC)) +
   geom_point()+
   theme_classic()+ 
   theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
