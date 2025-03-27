@@ -310,7 +310,6 @@ write_csv(wide,"./output/bayesian_relative_parameters_wide.csv" )
 
 
 
-
 # Step 5: Calculating MICs                              ----
 # __________________________________________________________
 #input= MIC assay parameters (growth_parameters_h20.csv)
@@ -517,9 +516,7 @@ transformed_Ab <- ggplot(test %>% filter(AA_mut_name_Ecoli != "rpoB_S512P"), aes
 wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
 
 
-#previous code
 ##TO DO 
-#use brms relative parameters and edit code 
 #make sure all are on the same axes and labels are readable
 #add in vertical and horizonal lines to mark the quandrants?
 
@@ -527,6 +524,8 @@ ecab_mu <- ggplot(wide, aes(x=relative_mumax_y_EC37,
                                y=relative_mumax_y_AB30, 
                                label=mutant))+
   geom_point() +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
+  coord_cartesian(xlim = c(0.425, 1.4), ylim =c(0.425, 1.4))+
   geom_text(hjust=0, vjust=0)+
   labs(title = "E.coli v A.baylyi mumax")+
   theme_classic() +
@@ -543,6 +542,8 @@ ecab_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37,
                             y=relative_maxOD_y_AB30, 
                             label=mutant))+
   geom_point()+
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
+  coord_cartesian(xlim = c(0.8, 1.36), ylim =c(0.8, 1.36))+
   geom_text(hjust=0, vjust=0)+
   labs(title = "E.coli v A.baylyi maxOD")+
   theme_classic() +
@@ -561,6 +562,8 @@ lpab_mu <- ggplot(wide, aes(x=relative_mumax_y_LP30,
                             y=relative_mumax_y_AB30, 
                             label=mutant))+
   geom_point() +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
+  coord_cartesian(xlim = c(0.425, 1.4), ylim =c(0.425, 1.4))+
   geom_text(hjust=0, vjust=0)+
   labs(title = "L. plantarum v A.baylyi maxOD")+
   theme_classic() +
@@ -577,6 +580,8 @@ lpab_OD <- ggplot(wide, aes(x=relative_maxOD_y_LP30,
                             y=relative_maxOD_y_AB30, 
                             label=mutant))+
   geom_point() +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
+  coord_cartesian(xlim = c(0.8, 1.36), ylim =c(0.8, 1.36))+
   geom_text(hjust=0, vjust=0)+
   labs(title = "L.plantarum v A.baylyi maxOD")+
   theme_classic() +
@@ -596,6 +601,8 @@ eclp_mu<- ggplot(wide, aes(x=relative_mumax_y_EC37,
                            y=relative_mumax_y_LP30, 
                            label=mutant))+
   geom_point() +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
+  coord_cartesian(xlim = c(0.425, 1.4), ylim =c(0.425, 1.4))+
   geom_text(hjust=0, vjust=0)+
   labs(title = "E.coli v L.planturum mumax")+
   theme_classic() +
@@ -611,6 +618,8 @@ eclp_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37,
                             y=relative_maxOD_y_LP30, 
                             label=mutant))+
   geom_point()+
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
+  coord_cartesian(xlim = c(0.8, 1.36), ylim =c(0.8, 1.36))+
   geom_text(hjust=0, vjust=0)+
   labs(title = "E.coli v L.plantarum maxOD")+
   theme_classic() +
@@ -623,9 +632,9 @@ eclp_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37,
 
 
 
-(ecab_mu + eclp_mu + lpab_mu)/ (ecab_OD + eclp_OD + lpab_OD)
+Fig3 <- (ecab_mu + eclp_mu + lpab_mu)/ (ecab_OD + eclp_OD + lpab_OD)
 
-
+ggsave("./plots/Fig3_epistasis.pdf", Fig3, width = 18, height = 12)
 
 
 # SupFig 1: fitness boxplots                            ----
