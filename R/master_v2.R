@@ -514,7 +514,7 @@ transformed_Ab <- ggplot(test %>% filter(AA_mut_name_Ecoli != "rpoB_S512P"), aes
 #output= 
 
 wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
-
+set.seed(23) #for geom_repel
 
 ##TO DO 
 #make sure all are on the same axes and labels are readable
@@ -526,15 +526,21 @@ ecab_mu <- ggplot(wide, aes(x=relative_mumax_y_EC37,
   geom_point() +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   coord_cartesian(xlim = c(0.425, 1.4), ylim =c(0.425, 1.4))+
-  geom_text(hjust=0, vjust=0)+
-  labs(title = "E.coli v A.baylyi mumax")+
+  labs(x = "E. coli", y = "A. baylyi")+
   theme_classic() +
   geom_errorbarh(aes(xmin= relative_mumax_ymin_EC37,
-                     xmax= relative_mumax_ymax_EC37)
+                     xmax= relative_mumax_ymax_EC37),
+                 alpha = 0.3
   )+
   geom_errorbar(aes(ymin= relative_mumax_ymin_AB30,
-                    ymax= relative_mumax_ymax_AB30)
-  )
+                    ymax= relative_mumax_ymax_AB30),
+                alpha = 0.3
+  )+
+  geom_label_repel(aes(label = mutant), 
+                   size = 4,
+                   fill = alpha("white", 0.3), 
+                   label.size = NA,
+                   segment.color = NA)
 
 
 
@@ -544,15 +550,21 @@ ecab_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37,
   geom_point()+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   coord_cartesian(xlim = c(0.8, 1.36), ylim =c(0.8, 1.36))+
-  geom_text(hjust=0, vjust=0)+
-  labs(title = "E.coli v A.baylyi maxOD")+
+  labs(x= "E. coli", y= "A. baylyi")+
   theme_classic() +
   geom_errorbarh(aes(xmin= relative_maxOD_ymin_EC37,
-                     xmax= relative_maxOD_ymax_EC37)
+                     xmax= relative_maxOD_ymax_EC37),
+                 alpha = 0.3
   )+
   geom_errorbar(aes(ymin= relative_maxOD_ymin_AB30,
-                    ymax= relative_maxOD_ymax_AB30)
-  )
+                    ymax= relative_maxOD_ymax_AB30),
+                alpha = 0.3
+  )+
+  geom_label_repel(aes(label = mutant), 
+                   size = 4,
+                   fill = alpha("white", 0.3), 
+                   label.size = NA,
+                   segment.color = NA)
 
 
 
@@ -564,15 +576,21 @@ lpab_mu <- ggplot(wide, aes(x=relative_mumax_y_LP30,
   geom_point() +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   coord_cartesian(xlim = c(0.425, 1.4), ylim =c(0.425, 1.4))+
-  geom_text(hjust=0, vjust=0)+
-  labs(title = "L. plantarum v A.baylyi maxOD")+
+  labs(x= "L. plantarum", y="A. baylyi")+
   theme_classic() +
   geom_errorbarh(aes(xmin= relative_mumax_ymin_LP30,
-                     xmax= relative_mumax_ymax_LP30)
+                     xmax= relative_mumax_ymax_LP30),
+                 alpha = 0.3
   )+
   geom_errorbar(aes(ymin= relative_mumax_ymin_AB30,
-                    ymax= relative_mumax_ymax_AB30)
-  )
+                    ymax= relative_mumax_ymax_AB30),
+                alpha = 0.3
+  )+
+  geom_label_repel(aes(label = mutant), 
+                   size = 4,
+                   fill = alpha("white", 0.3), 
+                   label.size = NA,
+                   segment.color = NA)
 
 
 
@@ -582,15 +600,21 @@ lpab_OD <- ggplot(wide, aes(x=relative_maxOD_y_LP30,
   geom_point() +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   coord_cartesian(xlim = c(0.8, 1.36), ylim =c(0.8, 1.36))+
-  geom_text(hjust=0, vjust=0)+
-  labs(title = "L.plantarum v A.baylyi maxOD")+
+  labs(x= "L. plantarum" , y= "A. baylyi")+
   theme_classic() +
   geom_errorbarh(aes(xmin= relative_maxOD_ymin_LP30,
-                     xmax= relative_maxOD_ymax_LP30)
+                     xmax= relative_maxOD_ymax_LP30),
+                 alpha = 0.3
   )+
   geom_errorbar(aes(ymin= relative_maxOD_ymin_AB30,
-                    ymax= relative_maxOD_ymax_AB30)
-  )
+                    ymax= relative_maxOD_ymax_AB30),
+                alpha = 0.3
+  )+
+  geom_label_repel(aes(label = mutant), 
+                   size = 4,
+                   fill = alpha("white", 0.3), 
+                   label.size = NA,
+                   segment.color = NA)
 
 
 
@@ -603,15 +627,21 @@ eclp_mu<- ggplot(wide, aes(x=relative_mumax_y_EC37,
   geom_point() +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   coord_cartesian(xlim = c(0.425, 1.4), ylim =c(0.425, 1.4))+
-  geom_text(hjust=0, vjust=0)+
-  labs(title = "E.coli v L.planturum mumax")+
+  labs(x= "E. coli", y= "L. planturum")+
   theme_classic() +
   geom_errorbarh(aes(xmin= relative_mumax_ymin_EC37,
-                     xmax= relative_mumax_ymax_EC37)
+                     xmax= relative_mumax_ymax_EC37),
+                 alpha = 0.3
   )+
   geom_errorbar(aes(ymin= relative_mumax_ymin_LP30,
-                    ymax= relative_mumax_ymax_LP30)
-  )
+                    ymax= relative_mumax_ymax_LP30),
+                alpha = 0.3
+  )+
+  geom_label_repel(aes(label = mutant), 
+                   size = 4,
+                   fill = alpha("white", 0.3), 
+                   label.size = NA,
+                   segment.color = NA)
 
 
 eclp_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37, 
@@ -620,74 +650,84 @@ eclp_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37,
   geom_point()+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   coord_cartesian(xlim = c(0.8, 1.36), ylim =c(0.8, 1.36))+
-  geom_text(hjust=0, vjust=0)+
-  labs(title = "E.coli v L.plantarum maxOD")+
+  labs(x= "E. coli", y= "L. planturum")+
   theme_classic() +
   geom_errorbarh(aes(xmin= relative_maxOD_ymin_EC37,
-                     xmax= relative_maxOD_ymax_EC37)
+                     xmax= relative_maxOD_ymax_EC37),
+                 alpha = 0.3
   )+
   geom_errorbar(aes(ymin= relative_maxOD_ymin_LP30,
-                    ymax= relative_maxOD_ymax_LP30)
-  )
+                    ymax= relative_maxOD_ymax_LP30),
+                alpha = 0.3
+  )+
+  geom_label_repel(aes(label = mutant), 
+                   size = 4,
+                   fill = alpha("white", 0.3), 
+                   label.size = NA,
+                   segment.color = NA)
 
 
 
 Fig3 <- (ecab_mu + eclp_mu + lpab_mu)/ (ecab_OD + eclp_OD + lpab_OD)
+Fig3
 
-ggsave("./plots/Fig3_epistasis.pdf", Fig3, width = 18, height = 12)
+ggexport(Fig3, filename = "./plots/Fig3_epistasis.pdf",  width = 15, height = 10)
 
+
+ggexport()
 
 # SupFig 1: fitness boxplots                            ----
 # __________________________________________________________
-#input=  
-#output= 
+#input=  growth_parameters_h20.csv, parameters from MIC assay
+#output= boxplots of species and mutants' fitness
 
-#previous code
-#TO DO
-#edit the dimensions of the PDf so that it increasing with increasing boxplots (each boxplot is the same width)
+
+parms <- read_csv("./output/growth_parameters_h20.csv")
+parms <- parms %>% filter(!is.na(rpoB))
+
 
 #mumax
 abmu <- parms %>% 
   filter(RIFconc==0) %>% 
   filter(Species =="Acinetobacter baylyi") %>% 
   ggplot(aes(x=rpoB, y=mumax))+
-  geom_boxplot(aes(alpha=0))+
-  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
+  geom_boxplot(aes(alpha=0.5))+
+  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
   theme_classic()+ 
   labs(title = "Acinetobacter baylyi")+
   theme(legend.position= "none", 
         axis.title.y = element_text(size = 14),
-        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10))+
   xlab("")+
-  coord_cartesian(ylim=c(0,0.1))
+  ylab("")+
+  coord_cartesian(ylim=c(0.002,0.035))
 
 ecmu <- parms %>% 
   filter(RIFconc==0) %>% 
   filter(Species =="Escherichia coli") %>% 
   ggplot(aes(x=rpoB, y=mumax))+
-  geom_boxplot(aes(alpha=0))+
-  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
+  geom_boxplot(aes(alpha=0.5))+
+  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
   theme_classic()+ 
   labs(title = "Escherichia coli")+
   theme(legend.position= "none", 
-        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10))+
   xlab("") +
-  ylab("")+
-  coord_cartesian(ylim=c(0,0.05))
+  coord_cartesian(ylim=c(0.002,0.035))
 
 lpmu <- parms %>% 
   filter(RIFconc==0) %>% 
   filter(Species =="Lactiplantibacillus plantarum") %>% 
   ggplot(aes(x=rpoB, y=mumax))+
-  geom_boxplot(aes(alpha=0))+
-  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
+  geom_boxplot(aes(alpha=0.5))+
+  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
   theme_classic()+ 
   labs(title = "Lactiplantibacillus plantarum")+
   theme(legend.position= "none",
-        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10))+
   xlab("")+
   ylab("")+
-  coord_cartesian(ylim=c(0,0.0225))
+  coord_cartesian(ylim=c(0.002,0.035))
 
 
 #maxOD
@@ -695,85 +735,49 @@ abmaxOD <- parms %>%
   filter(RIFconc==0) %>% 
   filter(Species =="Acinetobacter baylyi") %>% 
   ggplot(aes(x=rpoB, y=maxOD))+
-  geom_boxplot(aes(alpha=0))+
-  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
+  geom_boxplot(aes(alpha=0.5))+
+  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
   theme_classic()+ 
   #labs(title = "Acinetobacter baylyi")+
   theme(legend.position= "none", 
         axis.title.y = element_text(size = 14),
-        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size= 10))+
   xlab("")+
+  ylab("")+
   coord_cartesian(ylim=c(0.3,1.15))
 
 ecmaxOD <- parms %>% 
   filter(RIFconc==0) %>% 
   filter(Species =="Escherichia coli") %>% 
   ggplot(aes(x=rpoB, y=maxOD))+
-  geom_boxplot(aes(alpha=0))+
-  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
+  geom_boxplot(aes(alpha=0.5))+
+  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
   theme_classic()+ 
   #labs(title = "Escherichia coli")+
   theme(legend.position= "none",
-        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 10))+
   xlab("")+
-  ylab("")+
-  coord_cartesian(ylim=c(0.3,1.15))
+    coord_cartesian(ylim=c(0.3,1.15))
 
 lpmaxOD <- parms %>% 
   filter(RIFconc==0) %>% 
   filter(Species =="Lactiplantibacillus plantarum") %>% 
   ggplot(aes(x=rpoB, y=maxOD))+
-  geom_boxplot(aes(alpha=0))+
-  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.5) +
+  geom_boxplot(aes(alpha=0.5))+
+  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
   theme_classic()+ 
   #labs(title = "Lactiplantibacillus plantarum")+
   theme(legend.position= "none", 
-        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 10))+
   xlab("")+
   ylab("")+
-  coord_cartesian(ylim=c(0.3,1.15))
-
-#MICs
-
-abMIC <- MICs %>% 
-  filter(Species =="Acinetobacter baylyi") %>% 
-  ggplot(aes(x=rpoB, y=MIC)) +
-  geom_point()+
-  theme_classic()+ 
-  xlab("")+
-  theme(axis.title.y = element_text(size = 14),
-        axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
-  scale_y_continuous(trans='log10')
-
-ecMIC <- MICs %>% 
-  filter(Species =="Escherichia coli") %>% 
-  ggplot(aes(x=rpoB, y=MIC)) +
-  geom_point()+
-  theme_classic()+ 
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
-  xlab("")+
-  ylab("")+
-  scale_y_continuous(trans='log10')
-
-lpMIC <- MICs %>% 
-  filter(Species =="Lactiplantibacillus plantarum") %>% 
-  ggplot(aes(x=rpoB, y=MIC)) +
-  geom_point()+
-  theme_classic()+ 
-  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=0.3))+
-  xlab("")+
-  ylab("")+
-  scale_y_continuous(trans='log10')
+  coord_cartesian(ylim=c(0.3,1.15)) 
 
 
+SupFig1 <- (ecmu + abmu + lpmu)/(ecmaxOD + abmaxOD + lpmaxOD) 
+SupFig1 
 
-fig_species <- ggarrange(abmu,ecmu, lpmu,
-                         abmaxOD, ecmaxOD, lpmaxOD,
-                         abMIC, ecMIC, lpMIC,
-                         ncol=3, nrow=3)
-fig_species
-
-ggexport(fig_species, filename = "./plots/species_parameters.pdf")
+ggexport(SupFig1, filename = "./plots/SupFig1_boxplots.pdf", width=15 ,height= 8 )
 
 
 
