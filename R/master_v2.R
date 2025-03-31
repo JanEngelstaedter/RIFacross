@@ -381,23 +381,29 @@ plot(mumax_mod)
 
 wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
 
-
+set.seed(23) #for geom_repel
 
 #pleiotropy E. coli for 2 parameters at 2 temperatures
 
 #mumax
-pleio_mumax_EC <- ggplot(wide, aes(x= relative_mumax_y_EC30 , y=relative_mumax_y_EC37))+
+pleio_mumax_EC <- ggplot(wide, aes(x= relative_mumax_y_EC30 , y=relative_mumax_y_EC37, label = mutant))+
   geom_point()+
   theme_classic()+
   labs(title = "mumax E.coli", x= "30 degrees C" , y= "37 degrees C")+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   geom_errorbarh(aes(xmin= relative_mumax_ymin_EC30,
-                     xmax= relative_mumax_ymax_EC30)
+                     xmax= relative_mumax_ymax_EC30),
+                 alpha = 0.3
   )+
   geom_errorbar(aes(ymin= relative_mumax_ymin_EC37,
-                    ymax= relative_mumax_ymax_EC37)
+                    ymax= relative_mumax_ymax_EC37),
+                alpha = 0.3
   )+
-  geom_text_repel(aes(label= mutant ))
+  geom_label_repel(aes(label = mutant), 
+                   size = 4,
+                   fill = alpha("white", 0.3), 
+                   label.size = NA,
+                   segment.color = NA)
 
 
 #maxOD
@@ -407,12 +413,18 @@ pleio_maxOD_EC <- ggplot(wide, aes(x= relative_maxOD_y_EC30 , y=relative_maxOD_y
   labs(title = "maxOD E.coli", x= "30 degrees C" , y= "37 degrees C")+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   geom_errorbarh(aes(xmin= relative_maxOD_ymin_EC30,
-                     xmax= relative_maxOD_ymax_EC30)
+                     xmax= relative_maxOD_ymax_EC30),
+                 alpha = 0.3
   )+
   geom_errorbar(aes(ymin= relative_maxOD_ymin_EC37,
-                    ymax= relative_maxOD_ymax_EC37)
+                    ymax= relative_maxOD_ymax_EC37),
+                alpha = 0.3
   )+
-  geom_text_repel(aes(label= mutant ))
+  geom_label_repel(aes(label = mutant), 
+                   size = 4,
+                   fill = alpha("white", 0.3), 
+                   label.size = NA,
+                   segment.color = NA)
 
 
 #pleiotropy A. baylyi for 2 parameters at 2 temperatures
@@ -424,12 +436,18 @@ pleio_mumax_AB <- ggplot(wide, aes(x= relative_mumax_y_AB30 , y=relative_mumax_y
   labs(title = "mumax A. baylyi", x= "30 degrees C" , y= "37 degrees C")+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   geom_errorbarh(aes(xmin= relative_mumax_ymin_AB30,
-                     xmax= relative_mumax_ymax_AB30)
+                     xmax= relative_mumax_ymax_AB30),
+                 alpha = 0.3
   )+
   geom_errorbar(aes(ymin= relative_mumax_ymin_AB37,
-                    ymax= relative_mumax_ymax_AB37)
+                    ymax= relative_mumax_ymax_AB37),
+                alpha = 0.3
   )+
-  geom_text_repel(aes(label= mutant ))
+  geom_label_repel(aes(label = mutant), 
+                   size = 4,
+                   fill = alpha("white", 0.3), 
+                   label.size = NA,
+                   segment.color = NA)
 
 
 #maxOD
@@ -439,20 +457,28 @@ pleio_maxOD_AB <- ggplot(wide, aes(x= relative_maxOD_y_AB30 , y=relative_maxOD_y
   labs(title = "maxOD A. baylyi", x= "30 degrees C" , y= "37 degrees C")+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   geom_errorbarh(aes(xmin= relative_maxOD_ymin_AB30,
-                     xmax= relative_maxOD_ymax_AB30)
+                     xmax= relative_maxOD_ymax_AB30),
+                 alpha = 0.3
   )+
   geom_errorbar(aes(ymin= relative_maxOD_ymin_AB37,
-                    ymax= relative_maxOD_ymax_AB37)
+                    ymax= relative_maxOD_ymax_AB37),
+                alpha = 0.3
   )+
-  geom_text_repel(aes(label= mutant ))
+  geom_label_repel(aes(label = mutant), 
+                   size = 4,
+                   fill = alpha("white", 0.3), 
+                   label.size = NA,
+                   segment.color = NA)
 
 
 
-(pleio_mumax_EC + pleio_maxOD_EC)/(pleio_mumax_AB + pleio_maxOD_AB)
 
+Fig1 <- (pleio_mumax_EC + pleio_mumax_AB )/(pleio_maxOD_EC + pleio_maxOD_AB)
+Fig1
 
+ggexport(Fig1, filename = "./plots/Fig1_epistasis.pdf",  width = 13, height = 13)
 
-
+#
 
 
 
@@ -464,48 +490,95 @@ pleio_maxOD_AB <- ggplot(wide, aes(x= relative_maxOD_y_AB30 , y=relative_maxOD_y
 
 wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
 
-transformed_Ec <- wide %>% mutate(Ec_mumax_transformed = 
+transformed <- wide %>% mutate(Ec_mumax_transformed = 
                                log2(relative_mumax_y_EC37/relative_mumax_y_EC30)) %>% 
-                            mutate(Ec_maxOD_transformed = 
-                               log2(relative_maxOD_y_EC37/relative_maxOD_y_EC30))
-
+                        mutate(Ec_mumax_min_transformed = 
+                                 log2(relative_mumax_ymin_EC37/relative_mumax_ymin_EC30)) %>% 
+                        mutate(Ec_mumax_max_transformed = 
+                                 log2(relative_mumax_ymax_EC37/relative_mumax_ymax_EC30)) %>%
+                        mutate(Ec_maxOD_transformed = 
+                               log2(relative_maxOD_y_EC37/relative_maxOD_y_EC30)) %>%
+                        mutate(Ec_maxOD_min_transformed = 
+                                 log2(relative_maxOD_ymin_EC37/relative_maxOD_ymin_EC30)) %>% 
+                        mutate(Ec_maxOD_max_transformed = 
+                                 log2(relative_maxOD_ymax_EC37/relative_maxOD_ymax_EC30)) %>%
+                        mutate(Ab_mumax_transformed = 
+                              log2(relative_mumax_y_AB37/relative_mumax_y_AB30)) %>% 
+                        mutate(Ab_mumax_min_transformed = 
+                                 log2(relative_mumax_ymin_AB37/relative_mumax_ymin_AB30)) %>% 
+                        mutate(Ab_mumax_max_transformed = 
+                                 log2(relative_mumax_ymax_AB37/relative_mumax_ymax_AB30)) %>%
+                        mutate(Ab_maxOD_transformed = 
+                               log2(relative_maxOD_y_AB37/relative_maxOD_y_AB30)) %>% 
+                        mutate(Ab_maxOD_min_transformed = 
+                                 log2(relative_maxOD_ymin_AB37/relative_maxOD_ymin_AB30)) %>% 
+                         mutate(Ab_maxOD_max_transformed = 
+                                  log2(relative_maxOD_ymax_AB37/relative_maxOD_ymax_AB30)) 
 
 
 ####get WT relative parameters?
-mu_wt_Ec <- log2(1/1)
-od_wt_Ec <- log2(1/1)
+mu_wt <- log2(1/1)
+od_wt <- log2(1/1)
 
 
-transformed_Ec_graph <- ggplot(transformed_Ec, aes(Ec_mumax_transformed, Ec_maxOD_transformed)) +
+set.seed(23) #for geom_repel
+
+transformed_Ec_graph <- ggplot(transformed, aes(Ec_mumax_transformed, Ec_maxOD_transformed)) +
   geom_point()+
   theme_classic()+
-  labs(title = "E. coli", 
+  labs(title = expression(italic("E. coli")), 
        x = "mumax",
        y = "maxOD")+
- geom_vline(xintercept = mu_wt_Ec, linetype = "dashed", color = "blue") +
- geom_hline(yintercept = od_wt_Ec, linetype = "dashed", color = "blue") 
+ geom_vline(xintercept = mu_wt, linetype = "dotted", color = "blue") +
+ geom_hline(yintercept = od_wt, linetype = "dotted", color = "blue") +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
+  
+  geom_label_repel(aes(label = mutant), 
+                   size = 4,
+                   fill = alpha("white", 0.3), 
+                   label.size = NA,
+                   segment.color = NA) +
+  geom_errorbarh(aes(xmin= Ec_mumax_min_transformed,
+                     xmax= Ec_mumax_max_transformed),
+                 alpha = 0.3
+  )+
+  geom_errorbar(aes(ymin= Ec_maxOD_min_transformed,
+                    ymax= Ec_maxOD_max_transformed),
+                alpha = 0.3
+  )
  
 
-
-
-test <- test %>% mutate(Ab_mumax_transformed = 
-                          log2(mean_mumax_37_Acinetobacter.baylyi/mean_mumax_30_Acinetobacter.baylyi))
-
-test <- test %>% mutate(Ab_maxOD_transformed = 
-                          log2(mean_maxOD_37_Acinetobacter.baylyi/mean_maxOD_30_Acinetobacter.baylyi))
-
-wt_values <- test %>% filter(AA_mut_name_Ecoli == "WT")
-mu_wt_Ab <- wt_values$Ab_mumax_transformed
-od_wt_Ab <- wt_values$Ab_maxOD_transformed
-
-transformed_Ab <- ggplot(test %>% filter(AA_mut_name_Ecoli != "rpoB_S512P"), aes(Ab_mumax_transformed, Ab_maxOD_transformed)) +
+transformed_Ab_graph <- ggplot(transformed, aes(Ab_mumax_transformed, Ab_maxOD_transformed)) +
   geom_point()+
-  geom_vline(xintercept = mu_wt_Ab, linetype = "dashed", color = "blue") +
-  geom_hline(yintercept = od_wt_Ab, linetype = "dashed", color = "blue") +
-  labs(title = "A. baylyi", 
+  theme_classic()+
+  labs(title = expression(italic("A. baylyi")), 
        x = "mumax",
-       y = "maxOD") 
+       y = "maxOD") +
+  geom_vline(xintercept = mu_wt, linetype = "dotted", color = "blue") +
+  geom_hline(yintercept = od_wt, linetype = "dotted", color = "blue") +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
+  
+  geom_label_repel(aes(label = mutant), 
+                   size = 4,
+                   fill = alpha("white", 0.3), 
+                   label.size = NA,
+                   segment.color = NA) +
+  geom_errorbarh(aes(xmin= Ab_mumax_min_transformed,
+                     xmax= Ab_mumax_max_transformed),
+                 alpha = 0.3
+  )+
+  geom_errorbar(aes(ymin= Ab_maxOD_min_transformed,
+                    ymax= Ab_maxOD_max_transformed),
+                alpha = 0.3
+  )
 
+
+Fig2 <- transformed_Ec_graph + transformed_Ab_graph
+Fig2
+
+ggexport(Fig2, filename = "./plots/Fig2_transformed_epistasis.pdf",  width = 14, height = 7)
+
+#
 
 
 # Fig 3: epistasis parameter scatterplots               ----
@@ -668,7 +741,9 @@ eclp_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37,
 
 
 
+
 Fig3 <- (ecab_mu + eclp_mu + lpab_mu)/ (ecab_OD + eclp_OD + lpab_OD)
+Fig3 <- Fig3 +plot_annotation(tag_levels = 'A')
 Fig3
 
 ggexport(Fig3, filename = "./plots/Fig3_epistasis.pdf",  width = 15, height = 10)
@@ -772,6 +847,11 @@ lpmaxOD <- parms %>%
   xlab("")+
   ylab("")+
   coord_cartesian(ylim=c(0.3,1.15)) 
+
+
+
+
+#add MIC back in... 
 
 
 SupFig1 <- (ecmu + abmu + lpmu)/(ecmaxOD + abmaxOD + lpmaxOD) 
