@@ -352,23 +352,34 @@ overlapping <- parms_all %>%
 overlap <- unique(overlapping$rpoB)
 
 pleio_mod <- parms_all %>% 
-  filter(rpoB %in% overlap)
+  filter(rpoB %in% overlap) %>% 
+  filter(Species != "Lactiplantibacillus plantarum")
+
+
+#some A.  baylyi have NAs- this is be gone after the last temp assay 
+pleio_mod <- pleio_mod %>%
+  mutate(across(c(mumax, maxOD), ~replace_na(., 0)))
 
 dat_maxOD <- pleio_mod %>% 
-  select(c(Species, AA_mut_name_Ecoli, SetTemperature, maxOD))
+  select(c(Species, rpoB, SetTemperature, maxOD))
+
 dat_mumax <- pleio_mod %>% 
-  select(c(Species, AA_mut_name_Ecoli, SetTemperature, mumax))
+  select(c(Species, rpoB, SetTemperature, mumax))
 
 
-maxOD_mod <- brm(maxOD ~ AA_mut_name_Ecoli*Species + 
+maxOD_mod <- brm(maxOD ~ rpoB*Species + 
              SetTemperature*Species + 
-             AA_mut_name_Ecoli*SetTemperature, data = dat_maxOD)
+             rpoB*SetTemperature, 
+             data = dat_maxOD)
 summary(maxOD_mod)
 plot(maxOD_mod)
+#try with the 3 way interaction- ask Andrew 
 
-mumax_mod <- brm(mumax ~ AA_mut_name_Ecoli*Species + 
+
+mumax_mod <- brm(mumax ~ rpoB*Species + 
                    SetTemperature*Species + 
-                   AA_mut_name_Ecoli*SetTemperature, data = dat_mumax)
+                   rpoB*SetTemperature, 
+                 data = dat_mumax)
 summary(mumax_mod)
 plot(mumax_mod)
 
@@ -476,7 +487,7 @@ pleio_maxOD_AB <- ggplot(wide, aes(x= relative_maxOD_y_AB30 , y=relative_maxOD_y
 Fig1 <- (pleio_mumax_EC + pleio_mumax_AB )/(pleio_maxOD_EC + pleio_maxOD_AB)
 Fig1
 
-ggexport(Fig1, filename = "./plots/Fig1_epistasis.pdf",  width = 13, height = 13)
+ggexport(Fig1, filename = "./plots/Fig1_pleiotropy.pdf",  width = 13, height = 13)
 
 #
 
@@ -576,10 +587,9 @@ transformed_Ab_graph <- ggplot(transformed, aes(Ab_mumax_transformed, Ab_maxOD_t
 Fig2 <- transformed_Ec_graph + transformed_Ab_graph
 Fig2
 
-ggexport(Fig2, filename = "./plots/Fig2_transformed_epistasis.pdf",  width = 14, height = 7)
+ggexport(Fig2, filename = "./plots/Fig2_transformed_pleiotropy.pdf",  width = 14, height = 7)
 
 #
-
 
 # Fig 3: epistasis parameter scatterplots               ----
 # __________________________________________________________
