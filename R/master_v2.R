@@ -400,7 +400,7 @@ set.seed(23) #for geom_repel
 pleio_mumax_EC <- ggplot(wide, aes(x= relative_mumax_y_EC30 , y=relative_mumax_y_EC37, label = mutant))+
   geom_point()+
   theme_classic()+
-  labs(title = "mumax E.coli", x= "30 degrees C" , y= "37 degrees C")+
+  labs(title = expression(italic("E.coli")), x= expression( mu* "max (30"* degree *"C)") , y= expression(mu * "max (37"* degree *"C)"))+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   geom_errorbarh(aes(xmin= relative_mumax_ymin_EC30,
                      xmax= relative_mumax_ymax_EC30),
@@ -414,14 +414,22 @@ pleio_mumax_EC <- ggplot(wide, aes(x= relative_mumax_y_EC30 , y=relative_mumax_y
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
-                   segment.color = NA)
+                   segment.color = NA)+
+  theme(
+    plot.title = element_text(size = 18),
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10), 
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12)
+  )
+
 
 
 #maxOD
 pleio_maxOD_EC <- ggplot(wide, aes(x= relative_maxOD_y_EC30 , y=relative_maxOD_y_EC37))+
   geom_point()+
   theme_classic()+
-  labs(title = "maxOD E.coli", x= "30 degrees C" , y= "37 degrees C")+
+  labs(title = "",x= expression("maxOD (30"* degree *"C)") , y= expression("maxOD (37"* degree *"C)"))+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   geom_errorbarh(aes(xmin= relative_maxOD_ymin_EC30,
                      xmax= relative_maxOD_ymax_EC30),
@@ -435,7 +443,14 @@ pleio_maxOD_EC <- ggplot(wide, aes(x= relative_maxOD_y_EC30 , y=relative_maxOD_y
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
-                   segment.color = NA)
+                   segment.color = NA)+
+  theme(
+    plot.title = element_text(size = 18),
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10), 
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12)
+  )
 
 
 #pleiotropy A. baylyi for 2 parameters at 2 temperatures
@@ -444,7 +459,7 @@ pleio_maxOD_EC <- ggplot(wide, aes(x= relative_maxOD_y_EC30 , y=relative_maxOD_y
 pleio_mumax_AB <- ggplot(wide, aes(x= relative_mumax_y_AB30 , y=relative_mumax_y_AB37))+
   geom_point()+
   theme_classic()+
-  labs(title = "mumax A. baylyi", x= "30 degrees C" , y= "37 degrees C")+
+  labs(title = expression(italic("A. baylyi")) , x= expression( mu* "max (30"* degree *"C)") , y= expression(mu * "max (37"* degree *"C)"))+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   geom_errorbarh(aes(xmin= relative_mumax_ymin_AB30,
                      xmax= relative_mumax_ymax_AB30),
@@ -458,14 +473,21 @@ pleio_mumax_AB <- ggplot(wide, aes(x= relative_mumax_y_AB30 , y=relative_mumax_y
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
-                   segment.color = NA)
+                   segment.color = NA)+
+  theme(
+    plot.title = element_text(size = 18),
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10), 
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12)
+  )
 
 
 #maxOD
 pleio_maxOD_AB <- ggplot(wide, aes(x= relative_maxOD_y_AB30 , y=relative_maxOD_y_AB37))+
   geom_point()+
   theme_classic()+
-  labs(title = "maxOD A. baylyi", x= "30 degrees C" , y= "37 degrees C")+
+  labs(title = "",x= expression("maxOD (30"* degree *"C)") , y= expression("maxOD (37"* degree *"C)"))+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   geom_errorbarh(aes(xmin= relative_maxOD_ymin_AB30,
                      xmax= relative_maxOD_ymax_AB30),
@@ -479,15 +501,23 @@ pleio_maxOD_AB <- ggplot(wide, aes(x= relative_maxOD_y_AB30 , y=relative_maxOD_y
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
-                   segment.color = NA)
+                   segment.color = NA)+
+  theme(
+    plot.title = element_text(size = 18),
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10), 
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12)
+  )
 
 
 
 
 Fig1 <- (pleio_mumax_EC + pleio_mumax_AB )/(pleio_maxOD_EC + pleio_maxOD_AB)
-Fig1
+Fig1 <- Fig1 + plot_annotation(tag_levels = 'A')& 
+  theme(plot.tag = element_text(size = 14))
 
-ggexport(Fig1, filename = "./plots/Fig1_pleiotropy.pdf",  width = 13, height = 13)
+ggexport(Fig1, filename = "./plots/Fig1_pleiotropy.pdf",  width = 10, height = 10)
 
 #
 
@@ -556,6 +586,13 @@ transformed_Ec_graph <- ggplot(transformed, aes(Ec_mumax_transformed, Ec_maxOD_t
   geom_errorbar(aes(ymin= Ec_maxOD_min_transformed,
                     ymax= Ec_maxOD_max_transformed),
                 alpha = 0.3
+  )+
+  theme(
+    plot.title = element_text(size = 15),
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10), 
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12)
   )
  
 
@@ -581,13 +618,20 @@ transformed_Ab_graph <- ggplot(transformed, aes(Ab_mumax_transformed, Ab_maxOD_t
   geom_errorbar(aes(ymin= Ab_maxOD_min_transformed,
                     ymax= Ab_maxOD_max_transformed),
                 alpha = 0.3
+  )+
+  theme(
+    plot.title = element_text(size = 15),
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10), 
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12)
   )
 
 
 Fig2 <- transformed_Ec_graph + transformed_Ab_graph
 Fig2
 
-ggexport(Fig2, filename = "./plots/Fig2_transformed_pleiotropy.pdf",  width = 14, height = 7)
+ggexport(Fig2, filename = "./plots/Fig2_transformed_pleiotropy.pdf",  width = 10, height = 5)
 
 #
 
@@ -609,7 +653,7 @@ ecab_mu <- ggplot(wide, aes(x=relative_mumax_y_EC37,
   geom_point() +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   coord_cartesian(xlim = c(0.425, 1.4), ylim =c(0.425, 1.4))+
-  labs(x = "E. coli", y = "A. baylyi")+
+  labs(x =expression(mu* "max " *italic("E. coli")) , y =expression(mu* "max " * italic( "A. baylyi")))+
   theme_classic() +
   geom_errorbarh(aes(xmin= relative_mumax_ymin_EC37,
                      xmax= relative_mumax_ymax_EC37),
@@ -623,7 +667,13 @@ ecab_mu <- ggplot(wide, aes(x=relative_mumax_y_EC37,
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
-                   segment.color = NA)
+                   segment.color = NA)+
+  theme(
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12), 
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14)
+  )
 
 
 
@@ -633,7 +683,7 @@ ecab_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37,
   geom_point()+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   coord_cartesian(xlim = c(0.8, 1.36), ylim =c(0.8, 1.36))+
-  labs(x= "E. coli", y= "A. baylyi")+
+  labs(x= expression("maxOD " * italic("E. coli")) , y=expression("maxOD " * italic( "A. baylyi")))+
   theme_classic() +
   geom_errorbarh(aes(xmin= relative_maxOD_ymin_EC37,
                      xmax= relative_maxOD_ymax_EC37),
@@ -647,7 +697,13 @@ ecab_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37,
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
-                   segment.color = NA)
+                   segment.color = NA)+
+  theme(
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12), 
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14)
+  )
 
 
 
@@ -659,7 +715,7 @@ lpab_mu <- ggplot(wide, aes(x=relative_mumax_y_LP30,
   geom_point() +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   coord_cartesian(xlim = c(0.425, 1.4), ylim =c(0.425, 1.4))+
-  labs(x= "L. plantarum", y="A. baylyi")+
+  labs(x= expression(mu * "max "* italic("L. plantarum")), y=expression(mu* "max "* italic("A. baylyi")))+
   theme_classic() +
   geom_errorbarh(aes(xmin= relative_mumax_ymin_LP30,
                      xmax= relative_mumax_ymax_LP30),
@@ -673,7 +729,13 @@ lpab_mu <- ggplot(wide, aes(x=relative_mumax_y_LP30,
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
-                   segment.color = NA)
+                   segment.color = NA)+
+  theme(
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12), 
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14)
+  )
 
 
 
@@ -683,7 +745,7 @@ lpab_OD <- ggplot(wide, aes(x=relative_maxOD_y_LP30,
   geom_point() +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   coord_cartesian(xlim = c(0.8, 1.36), ylim =c(0.8, 1.36))+
-  labs(x= "L. plantarum" , y= "A. baylyi")+
+  labs(x= expression("maxOD " * italic("L. plantarum"))  , y= expression("maxOD "* italic("A. baylyi")))+
   theme_classic() +
   geom_errorbarh(aes(xmin= relative_maxOD_ymin_LP30,
                      xmax= relative_maxOD_ymax_LP30),
@@ -697,7 +759,13 @@ lpab_OD <- ggplot(wide, aes(x=relative_maxOD_y_LP30,
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
-                   segment.color = NA)
+                   segment.color = NA)+
+  theme(
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12), 
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14)
+  )
 
 
 
@@ -710,7 +778,7 @@ eclp_mu<- ggplot(wide, aes(x=relative_mumax_y_EC37,
   geom_point() +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   coord_cartesian(xlim = c(0.425, 1.4), ylim =c(0.425, 1.4))+
-  labs(x= "E. coli", y= "L. planturum")+
+  labs(x= expression(mu* "max " *italic("E. coli")), y= expression(mu* "max " *italic("L. planturum")) )+
   theme_classic() +
   geom_errorbarh(aes(xmin= relative_mumax_ymin_EC37,
                      xmax= relative_mumax_ymax_EC37),
@@ -724,7 +792,16 @@ eclp_mu<- ggplot(wide, aes(x=relative_mumax_y_EC37,
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
-                   segment.color = NA)
+                   segment.color = NA)+
+  theme(
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12), 
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14)
+  )
+
+
+
 
 
 eclp_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37, 
@@ -733,7 +810,7 @@ eclp_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37,
   geom_point()+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   coord_cartesian(xlim = c(0.8, 1.36), ylim =c(0.8, 1.36))+
-  labs(x= "E. coli", y= "L. planturum")+
+  labs(x= expression("maxOD " *italic("E. coli")), y= expression("maxOD " *italic("L. planturum")))+
   theme_classic() +
   geom_errorbarh(aes(xmin= relative_maxOD_ymin_EC37,
                      xmax= relative_maxOD_ymax_EC37),
@@ -747,19 +824,25 @@ eclp_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37,
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
-                   segment.color = NA)
+                   segment.color = NA)+
+  theme(
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12), 
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14)
+  )
 
 
 
 
 Fig3 <- (ecab_mu + eclp_mu + lpab_mu)/ (ecab_OD + eclp_OD + lpab_OD)
-Fig3 <- Fig3 +plot_annotation(tag_levels = 'A')
+Fig3 <- Fig3 +plot_annotation(tag_levels = 'A')& 
+  theme(plot.tag = element_text(size = 16))
 Fig3
 
 ggexport(Fig3, filename = "./plots/Fig3_epistasis.pdf",  width = 15, height = 10)
 
-
-ggexport()
+#
 
 # SupFig 1: fitness boxplots                            ----
 # __________________________________________________________
