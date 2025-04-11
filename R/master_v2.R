@@ -3,7 +3,7 @@
 
 library(tidyverse)
 library(grow96)
-library(Biostrings)
+#library(Biostrings)
 library(ALJEbinf)
 library(googlesheets4)
 library(UpSetR)
@@ -154,23 +154,46 @@ for(i in 1:nrow(projects)) {
   cat("\n")
 }
 
+
+#add the last replicate of A. baylyi
+extra <- processODData(specPath = "./data/A_baylyi_Ian/specs_temp", 
+                       dataPath = "./data/A_baylyi_Ian/OD_temp", 
+                       filePrefix = "extra_") %>% 
+  blankODs(groups = "ONCtemp") %>% 
+  filter(ONCtemp == "37") %>% 
+  filter(!is.na(Strain)) %>% 
+  filter(! Well %in% c("C6", "C7", "D7")) %>% #abnormal replicates
+  filter(!(Well == "D6" & Time_h > 15)) %>%  #Seems like mutation at end
+  select(-ONCtemp)
+
+
+extraAn <- analyseODData(extra,  tmin = 1, h = 20)
+
+analysis$A_baylyi_Ian$pars <- analysis$A_baylyi_Ian$pars %>% 
+  bind_rows(extraAn$pars)
+
+
 save(analysis, file = "./output/analysis_pleiotropy.RData")
+
 
 #empty working environment to keep everything clean:
 rm.all()
 
 
 
-#this is a change 
+
 #Add genetic mutations 
 
 projects <- read_csv("./data/global_key.csv")
 projects <- projects %>%  filter(Project_ID== "A_baylyi_Ian" | Project_ID == "E_coli_Alicia")
 load("./output/analysis_pleiotropy.RData")
 
+
+
 #remove A. baylyi replicates that didn't grow at 37degrees
 analysis$A_baylyi_Ian$pars <- analysis$A_baylyi_Ian$pars %>% 
-  filter(!(Date == "20/09/2024" & Strain %in% c("RM14", "RM02", "R24")))
+  filter(!(Date == "20/09/2024" & Strain %in% c("RM14", "R24")))
+ 
 
 
 pleioParms <- NULL
@@ -180,6 +203,7 @@ for(i in 1:nrow(projects)) {
   analysis[[i]]$pars$Species <- projects$Species[i]
   pleioParms <- rbind(pleioParms, analysis[[i]]$pars)
 }
+
 
 muts <- read_csv("./data/Genetic_data/muts.csv")
 
@@ -199,6 +223,7 @@ pleioParms <- pleioParms %>%
   mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", "")) 
 pleioParms$rpoB[pleioParms$Strain =="WT"] <- "WT"
 
+pleioParms$mumax[is.na(pleioParms$mumax)] <- 0 
 
 write_csv(pleioParms, "./output/growth_parameters_pleiotropy.csv")
 
@@ -221,10 +246,6 @@ parms_all <- bind_rows(pleioParms, parms_0) %>% select(-c(RIFconc, Replicate))
 write_csv(parms_all,"./output/combined_parms_absence_antibiotics.csv" )
 
 
-#remove this when nas are editted upstream
-parms_all$mumax[is.na(parms_all$mumax)] <- 0 
-
-
 dat <- c()
 ratio_maxOD <- c()
 ratio_mumax <- c()
@@ -243,7 +264,7 @@ for (i in 1:nrow(conditions)) {
     filter(dat$SetTemperature == conditions$Temperature[[i]])%>% 
     mutate(rpoB = fct_relevel(factor(rpoB), "WT")) 
   
-  Strains <- data.frame(rpoB = unique(dat$rpoB)) %>% filter(rpoB != "WT")
+  Strains <- data.frame(rpoB = unique(dat$rpoB)) #%>% filter(rpoB != "WT")
   
   #calculate parameters
   cat(paste0(">>> Working on ", conditions$Species[i]," in ", conditions$Temperature[i]," degrees C " , "\n"))
@@ -257,16 +278,26 @@ for (i in 1:nrow(conditions)) {
   posterior_WT_mumax <- as_draws_df(fit_mumax[[condition]])%>% pull(b_Intercept)
   
   
-  #if statement to get relative WT? need to make the name for b_intercept the same as the WT? or the WT the same as the b_intercept?
-  
+
   
   for(j in 1:nrow(Strains)){
-    Strain_name <- paste0("b_rpoB", Strains$rpoB[j])
-    posterior_mut_maxOD <- as_draws_df(fit_maxOD[[condition]]) %>% pull(Strain_name)
-    posterior_mut_mumax <- as_draws_df(fit_mumax[[condition]]) %>% pull(Strain_name) 
-    
-    ratio_maxOD[[condition]][[Strain_name]]<- (posterior_WT_maxOD + posterior_mut_maxOD) / posterior_WT_maxOD
-    ratio_mumax[[condition]][[Strain_name]]<- (posterior_WT_mumax + posterior_mut_mumax) / posterior_WT_mumax
+    if (Strains$rpoB[j] == "WT") {
+      Strain_name <- paste0("WT")
+      posterior_mut_maxOD <- as_draws_df(fit_maxOD[[condition]]) %>% pull(b_Intercept)
+      posterior_mut_mumax <- as_draws_df(fit_mumax[[condition]]) %>% pull(b_Intercept) 
+      
+      ratio_maxOD[[condition]][[Strain_name]]<- posterior_mut_maxOD / posterior_WT_maxOD
+      ratio_mumax[[condition]][[Strain_name]]<- posterior_mut_mumax / posterior_WT_mumax
+      
+    } else {
+      Strain_name <- paste0("b_rpoB", Strains$rpoB[j])
+      posterior_mut_maxOD <- as_draws_df(fit_maxOD[[condition]]) %>% pull(Strain_name)
+      posterior_mut_mumax <- as_draws_df(fit_mumax[[condition]]) %>% pull(Strain_name) 
+      
+      ratio_maxOD[[condition]][[Strain_name]]<- (posterior_mut_maxOD + posterior_WT_maxOD)/ posterior_WT_maxOD #need to add the intercept
+      ratio_mumax[[condition]][[Strain_name]]<- (posterior_mut_mumax + posterior_WT_mumax)/ posterior_WT_mumax
+      
+    }
     
     maxOD[[condition]][[Strain_name]] <- mean_hdi(ratio_maxOD[[condition]][[Strain_name]])
     mumax[[condition]][[Strain_name]] <- mean_hdi(ratio_mumax[[condition]][[Strain_name]])
@@ -399,10 +430,10 @@ set.seed(23) #for geom_repel
 #pleiotropy E. coli for 2 parameters at 2 temperatures
 
 #mumax
-pleio_mumax_EC <- ggplot(wide, aes(x= relative_mumax_y_EC30 , y=relative_mumax_y_EC37, label = mutant))+
+pleio_mumax_EC <- ggplot(wide, aes(x= relative_mumax_y_EC30 , y=relative_mumax_y_EC37))+
   geom_point()+
   theme_classic()+
-  labs(title = expression(italic("E.coli")), x= expression( mu* "max (30"* degree *"C)") , y= expression(mu * "max (37"* degree *"C)"))+
+  labs(title = expression(italic("E.coli")), x= expression( mu[max] * "(30"* degree *"C)") , y= expression(mu[max] *"(37"* degree *"C)"))+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   geom_errorbarh(aes(xmin= relative_mumax_ymin_EC30,
                      xmax= relative_mumax_ymax_EC30),
@@ -412,7 +443,7 @@ pleio_mumax_EC <- ggplot(wide, aes(x= relative_mumax_y_EC30 , y=relative_mumax_y
                     ymax= relative_mumax_ymax_EC37),
                 alpha = 0.3
   )+
-  geom_label_repel(aes(label = mutant), 
+  geom_label_repel(aes(label = rpoB), 
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
@@ -441,7 +472,7 @@ pleio_maxOD_EC <- ggplot(wide, aes(x= relative_maxOD_y_EC30 , y=relative_maxOD_y
                     ymax= relative_maxOD_ymax_EC37),
                 alpha = 0.3
   )+
-  geom_label_repel(aes(label = mutant), 
+  geom_label_repel(aes(label = rpoB), 
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
@@ -461,7 +492,7 @@ pleio_maxOD_EC <- ggplot(wide, aes(x= relative_maxOD_y_EC30 , y=relative_maxOD_y
 pleio_mumax_AB <- ggplot(wide, aes(x= relative_mumax_y_AB30 , y=relative_mumax_y_AB37))+
   geom_point()+
   theme_classic()+
-  labs(title = expression(italic("A. baylyi")) , x= expression( mu* "max (30"* degree *"C)") , y= expression(mu * "max (37"* degree *"C)"))+
+  labs(title = expression(italic("A. baylyi")) , x= expression( mu[max] * "(30"* degree *"C)") , y= expression(mu[max]* "(37"* degree *"C)"))+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   geom_errorbarh(aes(xmin= relative_mumax_ymin_AB30,
                      xmax= relative_mumax_ymax_AB30),
@@ -471,7 +502,7 @@ pleio_mumax_AB <- ggplot(wide, aes(x= relative_mumax_y_AB30 , y=relative_mumax_y
                     ymax= relative_mumax_ymax_AB37),
                 alpha = 0.3
   )+
-  geom_label_repel(aes(label = mutant), 
+  geom_label_repel(aes(label = rpoB), 
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
@@ -499,7 +530,7 @@ pleio_maxOD_AB <- ggplot(wide, aes(x= relative_maxOD_y_AB30 , y=relative_maxOD_y
                     ymax= relative_maxOD_ymax_AB37),
                 alpha = 0.3
   )+
-  geom_label_repel(aes(label = mutant), 
+  geom_label_repel(aes(label = rpoB), 
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
@@ -570,13 +601,13 @@ transformed_Ec_graph <- ggplot(transformed, aes(Ec_mumax_transformed, Ec_maxOD_t
   geom_point()+
   theme_classic()+
   labs(title = expression(italic("E. coli")), 
-       x = "mumax",
-       y = "maxOD")+
+       x = expression("log"[2]* "(" *mu[max] * "37/30)") ,
+       y = expression("log"[2]* "(maxOD 37/30)") )+
  geom_vline(xintercept = mu_wt, linetype = "dotted", color = "blue") +
  geom_hline(yintercept = od_wt, linetype = "dotted", color = "blue") +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   
-  geom_label_repel(aes(label = mutant), 
+  geom_label_repel(aes(label = rpoB), 
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
@@ -602,13 +633,13 @@ transformed_Ab_graph <- ggplot(transformed, aes(Ab_mumax_transformed, Ab_maxOD_t
   geom_point()+
   theme_classic()+
   labs(title = expression(italic("A. baylyi")), 
-       x = "mumax",
-       y = "maxOD") +
+       x = expression("log"[2]* "(" *mu[max] * "37/30)") ,
+       y = expression("log"[2]* "(maxOD 37/30)") )+
   geom_vline(xintercept = mu_wt, linetype = "dotted", color = "blue") +
   geom_hline(yintercept = od_wt, linetype = "dotted", color = "blue") +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   
-  geom_label_repel(aes(label = mutant), 
+  geom_label_repel(aes(label = rpoB), 
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
@@ -631,6 +662,8 @@ transformed_Ab_graph <- ggplot(transformed, aes(Ab_mumax_transformed, Ab_maxOD_t
 
 
 Fig2 <- transformed_Ec_graph + transformed_Ab_graph
+Fig2 <- Fig2 + plot_annotation(tag_levels = 'A')& 
+  theme(plot.tag = element_text(size = 14))
 Fig2
 
 ggexport(Fig2, filename = "./plots/Fig2_transformed_pleiotropy.pdf",  width = 10, height = 5)
@@ -651,11 +684,11 @@ set.seed(23) #for geom_repel
 
 ecab_mu <- ggplot(wide, aes(x=relative_mumax_y_EC37, 
                                y=relative_mumax_y_AB30, 
-                               label=mutant))+
+                               label=rpoB))+
   geom_point() +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   coord_cartesian(xlim = c(0.425, 1.4), ylim =c(0.425, 1.4))+
-  labs(x =expression(mu* "max " *italic("E. coli")) , y =expression(mu* "max " * italic( "A. baylyi")))+
+  labs(x =expression(mu* "max " *italic("(E. coli)")) , y =expression(mu* "max " * italic( "(A. baylyi)")))+
   theme_classic() +
   geom_errorbarh(aes(xmin= relative_mumax_ymin_EC37,
                      xmax= relative_mumax_ymax_EC37),
@@ -665,7 +698,7 @@ ecab_mu <- ggplot(wide, aes(x=relative_mumax_y_EC37,
                     ymax= relative_mumax_ymax_AB30),
                 alpha = 0.3
   )+
-  geom_label_repel(aes(label = mutant), 
+  geom_label_repel(aes(label = rpoB), 
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
@@ -681,11 +714,11 @@ ecab_mu <- ggplot(wide, aes(x=relative_mumax_y_EC37,
 
 ecab_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37, 
                             y=relative_maxOD_y_AB30, 
-                            label=mutant))+
+                            label=rpoB))+
   geom_point()+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   coord_cartesian(xlim = c(0.8, 1.36), ylim =c(0.8, 1.36))+
-  labs(x= expression("maxOD " * italic("E. coli")) , y=expression("maxOD " * italic( "A. baylyi")))+
+  labs(x= expression("maxOD " * italic("(E. coli)")) , y=expression("maxOD " * italic( "(A. baylyi)")))+
   theme_classic() +
   geom_errorbarh(aes(xmin= relative_maxOD_ymin_EC37,
                      xmax= relative_maxOD_ymax_EC37),
@@ -695,7 +728,7 @@ ecab_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37,
                     ymax= relative_maxOD_ymax_AB30),
                 alpha = 0.3
   )+
-  geom_label_repel(aes(label = mutant), 
+  geom_label_repel(aes(label = rpoB), 
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
@@ -713,11 +746,11 @@ ecab_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37,
 #L.plantarum v A.baylyi
 lpab_mu <- ggplot(wide, aes(x=relative_mumax_y_LP30, 
                             y=relative_mumax_y_AB30, 
-                            label=mutant))+
+                            label=rpoB))+
   geom_point() +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   coord_cartesian(xlim = c(0.425, 1.4), ylim =c(0.425, 1.4))+
-  labs(x= expression(mu * "max "* italic("L. plantarum")), y=expression(mu* "max "* italic("A. baylyi")))+
+  labs(x= expression(mu * "max "* italic("(L. plantarum)")), y=expression(mu* "max "* italic("(A. baylyi)")))+
   theme_classic() +
   geom_errorbarh(aes(xmin= relative_mumax_ymin_LP30,
                      xmax= relative_mumax_ymax_LP30),
@@ -727,7 +760,7 @@ lpab_mu <- ggplot(wide, aes(x=relative_mumax_y_LP30,
                     ymax= relative_mumax_ymax_AB30),
                 alpha = 0.3
   )+
-  geom_label_repel(aes(label = mutant), 
+  geom_label_repel(aes(label = rpoB), 
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
@@ -743,11 +776,11 @@ lpab_mu <- ggplot(wide, aes(x=relative_mumax_y_LP30,
 
 lpab_OD <- ggplot(wide, aes(x=relative_maxOD_y_LP30, 
                             y=relative_maxOD_y_AB30, 
-                            label=mutant))+
+                            label=rpoB))+
   geom_point() +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   coord_cartesian(xlim = c(0.8, 1.36), ylim =c(0.8, 1.36))+
-  labs(x= expression("maxOD " * italic("L. plantarum"))  , y= expression("maxOD "* italic("A. baylyi")))+
+  labs(x= expression("maxOD " * italic("(L. plantarum)"))  , y= expression("maxOD "* italic("(A. baylyi)")))+
   theme_classic() +
   geom_errorbarh(aes(xmin= relative_maxOD_ymin_LP30,
                      xmax= relative_maxOD_ymax_LP30),
@@ -757,7 +790,7 @@ lpab_OD <- ggplot(wide, aes(x=relative_maxOD_y_LP30,
                     ymax= relative_maxOD_ymax_AB30),
                 alpha = 0.3
   )+
-  geom_label_repel(aes(label = mutant), 
+  geom_label_repel(aes(label = rpoB), 
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
@@ -776,11 +809,11 @@ lpab_OD <- ggplot(wide, aes(x=relative_maxOD_y_LP30,
 #E.coli v L.plantarum 
 eclp_mu<- ggplot(wide, aes(x=relative_mumax_y_EC37, 
                            y=relative_mumax_y_LP30, 
-                           label=mutant))+
+                           label=rpoB))+
   geom_point() +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   coord_cartesian(xlim = c(0.425, 1.4), ylim =c(0.425, 1.4))+
-  labs(x= expression(mu* "max " *italic("E. coli")), y= expression(mu* "max " *italic("L. planturum")) )+
+  labs(x= expression(mu* "max " *italic("(E. coli)")), y= expression(mu* "max " *italic("(L. planturum)")) )+
   theme_classic() +
   geom_errorbarh(aes(xmin= relative_mumax_ymin_EC37,
                      xmax= relative_mumax_ymax_EC37),
@@ -790,7 +823,7 @@ eclp_mu<- ggplot(wide, aes(x=relative_mumax_y_EC37,
                     ymax= relative_mumax_ymax_LP30),
                 alpha = 0.3
   )+
-  geom_label_repel(aes(label = mutant), 
+  geom_label_repel(aes(label = rpoB), 
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
@@ -808,11 +841,11 @@ eclp_mu<- ggplot(wide, aes(x=relative_mumax_y_EC37,
 
 eclp_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37, 
                             y=relative_maxOD_y_LP30, 
-                            label=mutant))+
+                            label=rpoB))+
   geom_point()+
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
   coord_cartesian(xlim = c(0.8, 1.36), ylim =c(0.8, 1.36))+
-  labs(x= expression("maxOD " *italic("E. coli")), y= expression("maxOD " *italic("L. planturum")))+
+  labs(x= expression("maxOD " *italic("(E. coli)")), y= expression("maxOD " *italic("(L. planturum)")))+
   theme_classic() +
   geom_errorbarh(aes(xmin= relative_maxOD_ymin_EC37,
                      xmax= relative_maxOD_ymax_EC37),
@@ -822,7 +855,7 @@ eclp_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37,
                     ymax= relative_maxOD_ymax_LP30),
                 alpha = 0.3
   )+
-  geom_label_repel(aes(label = mutant), 
+  geom_label_repel(aes(label = rpoB), 
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
