@@ -355,12 +355,25 @@ MICs <- parms |>
   group_by(across(Species:AA_mut_name_Ecoli)) |>
   summarise(MIC = getMIC(RIFconc, maxOD))
 
+
+
+MICs <- MICs %>%
+  mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", "")) 
+MICs$rpoB[MICs$Strain =="WT"] <- "WT"
+MICs$rpoB[MICs$Nt_mut_name =="rpoB_dup1611"] <- "dup1611"
+
+MICs <- MICs %>%
+  mutate(MIC = ifelse(
+    MIC == Inf & (Species == "Acinetobacter baylyi" | Species == "Escherichia coli"), 4096,
+    ifelse(MIC == Inf & Species == "Lactiplantibacillus plantarum", 512, MIC)
+  ))
+
+
 WT <- MICs %>% filter (Strain=="WT")
 WT_MIC <- setNames(WT$MIC,WT$Species)
 MICs <- MICs %>% mutate(xfold=MIC/WT_MIC[Species])
 
-MICs <- MICs %>% 
-  mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", ""))
+
 
 write_csv(MICs, "./output/MICs.csv")
 
@@ -887,7 +900,8 @@ ggexport(Fig3, filename = "./plots/Fig3_epistasis.pdf",  width = 15, height = 10
 
 parms <- read_csv("./output/growth_parameters_h20.csv")
 parms <- parms %>% filter(!is.na(rpoB))
-
+MICs <- read_csv("./output/MICs.csv")
+MICs <- MICs %>% filter(!is.na(rpoB))
 
 #mumax
 abmu <- parms %>% 
@@ -897,12 +911,10 @@ abmu <- parms %>%
   geom_boxplot(aes(alpha=0.5))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
   theme_classic()+ 
-  labs(title = "Acinetobacter baylyi")+
-  theme(legend.position= "none", 
+  labs(title = expression(italic("A. baylyi")), y= "" , x= "")+
+    theme(legend.position= "none", 
         axis.title.y = element_text(size = 14),
         axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10))+
-  xlab("")+
-  ylab("")+
   coord_cartesian(ylim=c(0.002,0.035))
 
 ecmu <- parms %>% 
@@ -912,10 +924,9 @@ ecmu <- parms %>%
   geom_boxplot(aes(alpha=0.5))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
   theme_classic()+ 
-  labs(title = "Escherichia coli")+
+  labs(title = expression(italic("E. coli")), y= expression( mu[max]) , x= "")+
   theme(legend.position= "none", 
         axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10))+
-  xlab("") +
   coord_cartesian(ylim=c(0.002,0.035))
 
 lpmu <- parms %>% 
@@ -925,7 +936,7 @@ lpmu <- parms %>%
   geom_boxplot(aes(alpha=0.5))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
   theme_classic()+ 
-  labs(title = "Lactiplantibacillus plantarum")+
+  labs(title = expression(italic("L. plantarum")))+
   theme(legend.position= "none",
         axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10))+
   xlab("")+
@@ -941,7 +952,6 @@ abmaxOD <- parms %>%
   geom_boxplot(aes(alpha=0.5))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
   theme_classic()+ 
-  #labs(title = "Acinetobacter baylyi")+
   theme(legend.position= "none", 
         axis.title.y = element_text(size = 14),
         axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size= 10))+
@@ -956,7 +966,6 @@ ecmaxOD <- parms %>%
   geom_boxplot(aes(alpha=0.5))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
   theme_classic()+ 
-  #labs(title = "Escherichia coli")+
   theme(legend.position= "none",
         axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 10))+
   xlab("")+
@@ -969,7 +978,6 @@ lpmaxOD <- parms %>%
   geom_boxplot(aes(alpha=0.5))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
   theme_classic()+ 
-  #labs(title = "Lactiplantibacillus plantarum")+
   theme(legend.position= "none", 
         axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 10))+
   xlab("")+
@@ -979,10 +987,44 @@ lpmaxOD <- parms %>%
 
 
 
-#add MIC back in... 
+#MICS
+
+abMIC <- MICs %>% 
+  filter(Species =="Acinetobacter baylyi") %>% 
+  ggplot(aes(x=rpoB, y=xfold)) +
+  geom_point()+
+  theme_classic()+ 
+  xlab("")+
+  ylab("")+
+  theme(axis.title.y = element_text(size = 14),
+        axis.text.x = element_text(angle = 45,  vjust = 1, hjust=1, size = 10))+
+  scale_y_continuous(trans='log10')
+
+ecMIC <- MICs %>% 
+  filter(Species =="Escherichia coli") %>% 
+  ggplot(aes(x=rpoB, y=xfold)) +
+  geom_point()+
+  theme_classic()+ 
+  theme(axis.text.x = element_text(angle = 45,  vjust = 1, hjust=1, size = 10))+
+  xlab("")+
+  ylab("MIC")+
+  scale_y_continuous(trans='log10')
+
+lpMIC <- MICs %>% 
+  filter(Species =="Lactiplantibacillus plantarum") %>% 
+  ggplot(aes(x=rpoB, y=xfold)) +
+  geom_point()+
+  theme_classic()+ 
+  theme(axis.text.x = element_text(angle = 45,  vjust = 1, hjust=1, size = 10))+
+  xlab("")+
+  ylab("")+
+  scale_y_continuous(trans='log10')
 
 
-SupFig1 <- (ecmu + abmu + lpmu)/(ecmaxOD + abmaxOD + lpmaxOD) 
+
+
+
+SupFig1 <- (ecmu + abmu + lpmu)/(ecmaxOD + abmaxOD + lpmaxOD) / (ecMIC + abMIC +lpMIC)
 SupFig1 
 
 ggexport(SupFig1, filename = "./plots/SupFig1_boxplots.pdf", width=15 ,height= 8 )
