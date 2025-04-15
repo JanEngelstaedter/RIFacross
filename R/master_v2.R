@@ -264,7 +264,7 @@ for (i in 1:nrow(conditions)) {
     filter(dat$SetTemperature == conditions$Temperature[[i]])%>% 
     mutate(rpoB = fct_relevel(factor(rpoB), "WT")) 
   
-  Strains <- data.frame(rpoB = unique(dat$rpoB)) #%>% filter(rpoB != "WT")
+  Strains <- data.frame(rpoB = unique(dat$rpoB)) 
   
   #calculate parameters
   cat(paste0(">>> Working on ", conditions$Species[i]," in ", conditions$Temperature[i]," degrees C " , "\n"))
@@ -897,6 +897,7 @@ ggexport(Fig3, filename = "./plots/Fig3_epistasis.pdf",  width = 15, height = 10
 #input=  growth_parameters_h20.csv, parameters from MIC assay
 #output= boxplots of species and mutants' fitness
 
+parms_all <- read_csv("./output/combined_parms_absence_antibiotics.csv" )
 
 parms <- read_csv("./output/growth_parameters_h20.csv")
 parms <- parms %>% filter(!is.na(rpoB))
@@ -905,15 +906,15 @@ MICs <- MICs %>% filter(!is.na(rpoB))
 
 #mumax
 abmu <- parms %>% 
-  filter(RIFconc==0) %>% 
+  filter(RIFconc==0) %>%
   filter(Species =="Acinetobacter baylyi") %>% 
   ggplot(aes(x=rpoB, y=mumax))+
   geom_boxplot(aes(alpha=0.5))+
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
   theme_classic()+ 
-  labs(title = expression(italic("A. baylyi")), y= "" , x= "")+
+    labs(title = expression(italic("A. baylyi")), y= "" , x= "")+
     theme(legend.position= "none", 
-        axis.title.y = element_text(size = 14),
+        plot.title = element_text(size = 18),
         axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10))+
   coord_cartesian(ylim=c(0.002,0.035))
 
@@ -926,6 +927,8 @@ ecmu <- parms %>%
   theme_classic()+ 
   labs(title = expression(italic("E. coli")), y= expression( mu[max]) , x= "")+
   theme(legend.position= "none", 
+        plot.title = element_text(size = 18),
+        axis.title.y = element_text(size = 18),
         axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10))+
   coord_cartesian(ylim=c(0.002,0.035))
 
@@ -938,6 +941,7 @@ lpmu <- parms %>%
   theme_classic()+ 
   labs(title = expression(italic("L. plantarum")))+
   theme(legend.position= "none",
+        plot.title = element_text(size = 18),
         axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10))+
   xlab("")+
   ylab("")+
@@ -991,7 +995,7 @@ lpmaxOD <- parms %>%
 
 abMIC <- MICs %>% 
   filter(Species =="Acinetobacter baylyi") %>% 
-  ggplot(aes(x=rpoB, y=xfold)) +
+  ggplot(aes(x=rpoB, y=MIC)) +
   geom_point()+
   theme_classic()+ 
   xlab("")+
@@ -1002,7 +1006,7 @@ abMIC <- MICs %>%
 
 ecMIC <- MICs %>% 
   filter(Species =="Escherichia coli") %>% 
-  ggplot(aes(x=rpoB, y=xfold)) +
+  ggplot(aes(x=rpoB, y=MIC)) +
   geom_point()+
   theme_classic()+ 
   theme(axis.text.x = element_text(angle = 45,  vjust = 1, hjust=1, size = 10))+
@@ -1012,7 +1016,7 @@ ecMIC <- MICs %>%
 
 lpMIC <- MICs %>% 
   filter(Species =="Lactiplantibacillus plantarum") %>% 
-  ggplot(aes(x=rpoB, y=xfold)) +
+  ggplot(aes(x=rpoB, y=MIC)) +
   geom_point()+
   theme_classic()+ 
   theme(axis.text.x = element_text(angle = 45,  vjust = 1, hjust=1, size = 10))+
@@ -1027,13 +1031,81 @@ lpMIC <- MICs %>%
 SupFig1 <- (ecmu + abmu + lpmu)/(ecmaxOD + abmaxOD + lpmaxOD) / (ecMIC + abMIC +lpMIC)
 SupFig1 
 
-ggexport(SupFig1, filename = "./plots/SupFig1_boxplots.pdf", width=15 ,height= 8 )
+ggexport(SupFig1, filename = "./plots/SupFig1_boxplots.pdf", width=15 ,height= 15 )
 
 
 
 
-# SupFig 2: MIC growth curves                           ----
+# SupFig 2: Temperature assay absolute fitness          ----
 # __________________________________________________________
-#input=  
-#output= 
+#input=  opposite temperature values
+#output= absolute fitness boxplots
+
+pleioParms <- read_csv("./output/growth_parameters_pleiotropy.csv")
+
+
+abmutemp <- pleioParms %>% 
+  filter(Species =="Acinetobacter baylyi") %>% 
+  ggplot(aes(x=rpoB, y=mumax))+
+  geom_boxplot(aes(alpha=0.5))+
+  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
+  theme_classic()+ 
+  labs(title = expression(italic("A. baylyi")), y= "" , x= "")+
+  theme(legend.position= "none", 
+        plot.title = element_text(size = 18),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10))+
+  coord_cartesian(ylim=c(0.00,0.0215))
+
+ecmutemp <- pleioParms %>% 
+  filter(Species =="Escherichia coli") %>% 
+  ggplot(aes(x=rpoB, y=mumax))+
+  geom_boxplot(aes(alpha=0.5))+
+  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
+  theme_classic()+ 
+  labs(title = expression(italic("E. coli")), y= expression( mu[max]) , x= "")+
+  theme(legend.position= "none", 
+        plot.title = element_text(size = 18),
+        axis.title.y = element_text(size = 18),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10))+
+  coord_cartesian(ylim=c(0.00,0.0215))
+
+
+
+abmaxODtemp <- pleioParms %>% 
+  filter(Species =="Acinetobacter baylyi") %>% 
+  ggplot(aes(x=rpoB, y=maxOD))+
+  geom_boxplot(aes(alpha=0.5))+
+  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
+  theme_classic()+ 
+  theme(legend.position= "none", 
+        axis.title.y = element_text(size = 14),
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size= 10))+
+  xlab("")+
+  ylab("")+
+  coord_cartesian(ylim=c(0,1.16))
+
+ecmaxODtemp <- pleioParms %>% 
+  filter(Species =="Escherichia coli") %>% 
+  ggplot(aes(x=rpoB, y=maxOD))+
+  geom_boxplot(aes(alpha=0.5))+
+  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
+  theme_classic()+ 
+  theme(legend.position= "none",
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 10))+
+  xlab("")+
+  coord_cartesian(ylim=c(0,1.16))
+
+
+
+SupFig2 <- (ecmutemp + abmutemp) / (ecmaxODtemp + abmaxODtemp)
+SupFig2
+
+ggexport(SupFig2, filename = "./plots/SupFig2_boxplots_temp.pdf", width=10 ,height= 8 )
+
+
+
+
+
+
+
 
