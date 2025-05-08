@@ -683,6 +683,10 @@ transformed_Ab <- ggplot(test %>% filter(AA_mut_name_Ecoli != "rpoB_S512P"), aes
 ######################LABEL THE MUTANTS? also the dotted lines are the WT for comparison, 
 
 
+library(knitr)
+kable(maxOD_mod, digits = 3)
+
+posterior_summary <- as.data.frame(posterior_summary(maxOD_mod))
 
 #######
 #scatter plot 

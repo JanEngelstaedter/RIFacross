@@ -310,4 +310,116 @@ bluh <- test %>% mutate(condition = row.names(test)) %>%
 
 x_mean <- mean(ratio_maxOD$EC30$b_AA_mut_name_EcolirpoB_S509R)
     
-    
+
+###########
+#Make spec files 
+
+makeSpec_fullFact(
+  plateName = "25-03-25_MIC_8K.6.2",
+  rowName = "Strain",
+  columnName = "RIFconc",
+  rows = c( "MG1655", "R01F6", "R02G6", "R03D2", "R04E9", "blank") , 
+  columns = c("8192" , "4096" , "2048" , "1024" , "5793" , "2896" , "1448" , "724", 
+              "362" , "0") , 
+  border = 'EMPTY' , 
+  borderStyle = "NAs",
+  blankRows = 7 ,
+  specPath = "./data/E_coli_Alicia/specs",
+  makePlot = FALSE
+)
+
+makeSpec_fullFact(
+  plateName = "25-03-26_MIC_8K.6.3",
+  rowName = "Strain",
+  columnName = "RIFconc",
+  rows = c( "R04E9", "MG1655", "R02G6", "blank", "R01F6", "R03D2") , 
+  columns = c("8192" , "4096" , "2048" , "1024" , "5793" , "2896" , "1448" , "724", 
+              "362" , "0") , 
+  border = 'EMPTY' , 
+  borderStyle = "NAs",
+  blankRows = 5,
+  specPath = "./data/E_coli_Alicia/specs",
+  makePlot = FALSE
+)
+
+
+makeSpec_fullFact(
+  plateName = "25-03-27_MIC_8K.6.4",
+  rowName = "Strain",
+  columnName = "RIFconc",
+  rows = c( "R02G6", "R04E9", "blank", "R01F6", "MG1655", "R03D2") , 
+  columns = c("8192" , "4096" , "2048" , "1024" , "5793" , "2896" , "1448" , "724", 
+              "362" , "0") , 
+  border = 'EMPTY' , 
+  borderStyle = "NAs",
+  blankRows = 4,
+  specPath = "./data/E_coli_Alicia/specs",
+  makePlot = FALSE
+)
+
+
+
+makeSpec_fullFact(
+  plateName = "25-04-09_baylyi_mutants_37deg",
+  rowName = "Strain",
+  columnName = "ONCtemp",
+  rows = c( "R24", "RM02", "RM14", "WT", "blank", "NA") , 
+  columns = c("30" , "30" , "30" , "NA" , "37" , "37" , "37" , "NA", 
+              "NA" , "NA") , 
+  border = 'EMPTY' , 
+  borderStyle = "NAs",
+  blankRows = 6 ,
+  specPath = "./data/A_baylyi_Ian/specs_temp",
+  makePlot = FALSE
+)
+
+
+
+
+
+test <- processODData(specPath = "./data/A_baylyi_Ian/specs_temp", 
+                      dataPath = "./data/A_baylyi_Ian/OD_temp") %>% 
+  blankODs(groups = "Strain") %>% 
+  filter(!is.na(Media)) %>% 
+  filter(Media != "blank") 
+
+today <- processODData(specPath = "./data/A_baylyi_Ian/specs_temp", 
+                       dataPath = "./data/A_baylyi_Ian/OD_temp", 
+                       filePrefix = "extra_") %>% 
+  blankODs(groups = "Strain") %>% 
+  filter(!is.na(ONCtemp)) %>% 
+  filter(!is.na(Strain)) %>% 
+  filter(Strain != "blank")
+
+comp <- bind_rows(test, today)
+
+
+ggplot(extra, aes(x= Time_h, y= blankedOD)) +
+  geom_point(aes(col = Column)) +
+  facet_wrap(~Strain, scales = "free")
+
+ggplot(test %>% filter(Strain == c("R24" , "RM02", "RM14", "WT" )),
+       aes(x= Time_h, y= OD)) +
+  geom_point(aes(colour = Well))+
+  facet_wrap(~Strain, scales = "free")
+
+ggplot(comp %>% filter(Strain == "R24"), aes(x= Time_h, y= OD)) +
+  geom_point(aes(colour = Date)) +
+  facet_grid(Strain~ONCtemp)
+
+ggplot(comp %>% filter(Strain == "RM02"), aes(x= Time_h, y= OD)) +
+  geom_point(aes(colour = Date)) +
+  facet_grid(Strain~ONCtemp)
+
+ggplot(comp %>% filter(Strain == "RM14"), aes(x= Time_h, y= OD)) +
+  geom_point(aes(colour = Date)) +
+  facet_grid(Strain~ONCtemp)
+
+ggplot(comp %>% filter(Strain == "WT"), aes(x= Time_h, y= OD)) +
+  geom_point(aes(colour = Date)) +
+  facet_grid(Strain~ONCtemp)
+
+ggplot(test  %>% filter(Strain == c("R24" , "RM02", "RM14", "WT" )), aes(x= Time_h , y= OD)) +
+  geom_point()+
+  facet_grid(Strain~ONCtemp)
+

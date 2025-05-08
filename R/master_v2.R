@@ -4,7 +4,7 @@
 library(tidyverse)
 library(grow96)
 #library(Biostrings)
-library(ALJEbinf)
+#library(ALJEbinf)
 library(googlesheets4)
 library(UpSetR)
 library(varhandle)
@@ -1100,12 +1100,32 @@ ecmaxODtemp <- pleioParms %>%
 SupFig2 <- (ecmutemp + abmutemp) / (ecmaxODtemp + abmaxODtemp)
 SupFig2
 
-ggexport(SupFig2, filename = "./plots/SupFig2_boxplots_temp.pdf", width=10 ,height= 8 )
+ggexport(SupFig2, filename = "./plots/SupFig2_boxplots_temp.pdf", width=8 ,height= 8 )
 
 
 
+# SupFig 3: Trade-off schematic                         ----
+# __________________________________________________________
 
+df <- data.frame(x = c(0.5, 1.5), y = c(0.5, 1.5))
 
+schem <- ggplot(df, aes(x, y)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "solid") +
+  coord_fixed() +
+  xlim(0.5, 1.2) + ylim(0.5, 1.2) +
+  geom_vline(xintercept = 1, linetype = "dotted", color = "blue") +
+  geom_hline(yintercept = 1, linetype = "dotted", color = "blue") +
+  geom_rect(xmin = 0, xmax = 1, ymin = 0, ymax = 1, alpha = 0.2, fill = "pink") +
+  geom_rect(xmin = 1, xmax = 2,  ymin = 1, ymax = 2,  alpha = 0.2, fill = "pink") +
+  geom_rect(xmin = 0, xmax = 1,  ymin = 1, ymax = 2,  alpha = 0.2, fill = "yellow") +
+  geom_rect(xmin = 1, xmax = 2,  ymin = 0, ymax = 1,  alpha = 0.2, fill = "yellow") +
+  labs(x = expression("T"[rel]*"(E"[1]*")"))+
+  labs(y =expression("T"[rel]*"(E"[2]*")" )) +
+      theme_classic()+
+  geom_segment(aes(x = 0.7, y = 0.7, xend = 1, yend = 1),
+               linetype = "solid", color = "red", size=1.3)+
+  geom_segment(aes(x = 0.7, y = 0.7, xend = 0.7, yend = 0.9),
+               linetype = "solid", color = "purple", size=1.3)
 
-
-
+ggexport(schem, filename = "./plots/SupFig3_schematic.pdf", width=10 ,height= 8 )
+ggsave("./plots/SupFig3_schematic.pdf", schem, width=4 , height= 4 )
