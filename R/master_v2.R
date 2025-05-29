@@ -244,6 +244,10 @@ parms_0 <- parms %>% filter(RIFconc == 0 ) %>%
 
 parms_all <- bind_rows(pleioParms, parms_0) %>% select(-c(RIFconc, Replicate))
 write_csv(parms_all,"./output/combined_parms_absence_antibiotics.csv" )
+parms_all <- read_csv("./output/combined_parms_absence_antibiotics.csv")
+
+
+#read in your output from grow96 pars (all the parameter estimates from each growth curve)
 
 
 dat <- c()
@@ -256,7 +260,7 @@ maxOD <- c()
 mumax <- c()
 
 
-for (i in 1:nrow(conditions)) {
+for (i in 1:nrow(conditions)) {    
   dat <- parms_all %>% 
     filter(parms_all$Species== conditions$Species[[i]]) 
   
@@ -270,36 +274,37 @@ for (i in 1:nrow(conditions)) {
   cat(paste0(">>> Working on ", conditions$Species[i]," in ", conditions$Temperature[i]," degrees C " , "\n"))
   condition <- conditions$Condition[i]
   
-  fit_maxOD[[condition]] <- brm(maxOD ~ rpoB, data = dat)
+  fit_maxOD[[condition]] <- brm(maxOD ~ rpoB, data = dat) 
   fit_mumax[[condition]] <- brm(mumax ~ rpoB, data = dat)
   
   
-  posterior_WT_maxOD <- as_draws_df(fit_maxOD[[condition]])%>% pull(b_Intercept)
+  posterior_WT_maxOD <- as_draws_df(fit_maxOD[[condition]])%>% pull(b_Intercept) 
   posterior_WT_mumax <- as_draws_df(fit_mumax[[condition]])%>% pull(b_Intercept)
   
   
 
   
   for(j in 1:nrow(Strains)){
-    if (Strains$rpoB[j] == "WT") {
+    if (Strains$rpoB[j] == "WT") {  
       Strain_name <- paste0("WT")
       posterior_mut_maxOD <- as_draws_df(fit_maxOD[[condition]]) %>% pull(b_Intercept)
       posterior_mut_mumax <- as_draws_df(fit_mumax[[condition]]) %>% pull(b_Intercept) 
       
-      ratio_maxOD[[condition]][[Strain_name]]<- posterior_mut_maxOD / posterior_WT_maxOD
+      ratio_maxOD[[condition]][[Strain_name]]<- posterior_mut_maxOD / posterior_WT_maxOD 
+      
       ratio_mumax[[condition]][[Strain_name]]<- posterior_mut_mumax / posterior_WT_mumax
       
     } else {
-      Strain_name <- paste0("b_rpoB", Strains$rpoB[j])
+      Strain_name <- paste0("b_rpoB", Strains$rpoB[j]) 
       posterior_mut_maxOD <- as_draws_df(fit_maxOD[[condition]]) %>% pull(Strain_name)
       posterior_mut_mumax <- as_draws_df(fit_mumax[[condition]]) %>% pull(Strain_name) 
       
-      ratio_maxOD[[condition]][[Strain_name]]<- (posterior_mut_maxOD + posterior_WT_maxOD)/ posterior_WT_maxOD #need to add the intercept
+      ratio_maxOD[[condition]][[Strain_name]]<- (posterior_mut_maxOD + posterior_WT_maxOD)/ posterior_WT_maxOD 
       ratio_mumax[[condition]][[Strain_name]]<- (posterior_mut_mumax + posterior_WT_mumax)/ posterior_WT_mumax
       
     }
     
-    maxOD[[condition]][[Strain_name]] <- mean_hdi(ratio_maxOD[[condition]][[Strain_name]])
+    maxOD[[condition]][[Strain_name]] <- mean_hdi(ratio_maxOD[[condition]][[Strain_name]]) 
     mumax[[condition]][[Strain_name]] <- mean_hdi(ratio_mumax[[condition]][[Strain_name]])
     
     
@@ -327,6 +332,8 @@ rel_parms <- left_join(rel_parms, conditions, by = "Condition") %>%
   mutate(rpoB = str_replace(rpoB, "b_rpoB", ""))
 
 write_csv(rel_parms,"./output/bayesian_relative_parameters.csv" )
+
+
 
 #wide dataframe for graphing
 wide <- rel_parms %>% select( Condition , rpoB, 
@@ -1107,25 +1114,34 @@ ggexport(SupFig2, filename = "./plots/SupFig2_boxplots_temp.pdf", width=8 ,heigh
 # SupFig 3: Trade-off schematic                         ----
 # __________________________________________________________
 
+library(grid)
+
 df <- data.frame(x = c(0.5, 1.5), y = c(0.5, 1.5))
 
 schem <- ggplot(df, aes(x, y)) +
   geom_abline(slope = 1, intercept = 0, linetype = "solid") +
   coord_fixed() +
   xlim(0.5, 1.2) + ylim(0.5, 1.2) +
-  geom_vline(xintercept = 1, linetype = "dotted", color = "blue") +
-  geom_hline(yintercept = 1, linetype = "dotted", color = "blue") +
-  geom_rect(xmin = 0, xmax = 1, ymin = 0, ymax = 1, alpha = 0.2, fill = "pink") +
-  geom_rect(xmin = 1, xmax = 2,  ymin = 1, ymax = 2,  alpha = 0.2, fill = "pink") +
-  geom_rect(xmin = 0, xmax = 1,  ymin = 1, ymax = 2,  alpha = 0.2, fill = "yellow") +
-  geom_rect(xmin = 1, xmax = 2,  ymin = 0, ymax = 1,  alpha = 0.2, fill = "yellow") +
-  labs(x = expression("T"[rel]*"(E"[1]*")"))+
-  labs(y =expression("T"[rel]*"(E"[2]*")" )) +
+  geom_vline(xintercept = 1, linetype = "dotted") +
+  geom_hline(yintercept = 1, linetype = "dotted") +
+  #geom_rect(xmin = 0, xmax = 1, ymin = 0, ymax = 1, alpha = 0.2, fill = "pink") +
+  #geom_rect(xmin = 1, xmax = 2,  ymin = 1, ymax = 2,  alpha = 0.2, fill = "pink") +
+  geom_rect(xmin = 0, xmax = 1,  ymin = 1, ymax = 2,  alpha = 0.2, fill = "grey") +
+  geom_rect(xmin = 1, xmax = 2,  ymin = 0, ymax = 1,  alpha = 0.2, fill = "grey") +
+  labs(x = expression("P"[rel]*"(E"[1]*")"))+
+  labs(y =expression("P"[rel]*"(E"[2]*")" )) +
       theme_classic()+
   geom_segment(aes(x = 0.7, y = 0.7, xend = 1, yend = 1),
-               linetype = "solid", color = "red", size=1.3)+
+               linetype = "solid", color = "steelblue1", size=1.3, 
+               arrow  = arrow(length = unit(0.2, "cm"), type = "closed", ends= "first"))+
   geom_segment(aes(x = 0.7, y = 0.7, xend = 0.7, yend = 0.9),
-               linetype = "solid", color = "purple", size=1.3)
+               linetype = "solid", color = "gold", size=1.3, 
+               arrow  = arrow(length = unit(0.2, "cm"), type = "closed"))
+schem
 
-ggexport(schem, filename = "./plots/SupFig3_schematic.pdf", width=10 ,height= 8 )
-ggsave("./plots/SupFig3_schematic.pdf", schem, width=4 , height= 4 )
+#ggexport(schem, filename = "./plots/Fig_schematic.pdf", width=10 ,height= 8 )
+ggsave("./plots/Fig_schematic.pdf", schem, width=4 , height= 4 )
+
+
+
+
