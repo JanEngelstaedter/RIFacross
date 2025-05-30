@@ -65,37 +65,25 @@ for(i in 1:nrow(projects)) {
   # plotting:
   plot_growthData(dat[[i]], paste0("./plots/", projects$Project_ID[i], "_growthcurves.pdf"))
   analysis[[i]] <- analyseODData(dat[[i]], tmin = 1, h = 20)
+  # adding additional information from project:
+  analysis[[i]]$pars$Project_ID <- projects$Project_ID[i]
+  analysis[[i]]$pars$Species <- projects$Species[i]
   cat("\n")
 }
 save(analysis, file = "./output/analysis_h20.RData")
 
-#empty working environment to keep everything clean:
-rm.all()
-
-
-# Step 2: Add genetic information to data               ----
-# __________________________________________________________
-#input= analysis_h20.RData and genetic data
-#output= growth parameters with corresponding mutation (growth_parameters_h20.csv)
-
-projects <- read_csv("./data/global_key.csv")
-load("./output/analysis_h20.RData")
-
+# produce single table with parameter estimates for all species:
 parms <- NULL
-# turn analysis list into single data frame:
 for(i in 1:nrow(projects)) {
-  analysis[[i]]$pars$Project_ID <- projects$Project_ID[i]
-  analysis[[i]]$pars$Species <- projects$Species[i]
   parms <- rbind(parms, analysis[[i]]$pars)
 }
 
-# read in files with identities of mutations:
+# add genetic information:
 muts <- read_csv("./data/Genetic_data/muts.csv")
-muts_Edward <- read_csv("./data/Genetic_data/Edward_mutants.csv") |>
-  filter(!is.na(Strain_Name)) |>
-  mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", ""))
-muts_Edward_lookup <- muts_Edward$Strain_Name
-names(muts_Edward_lookup) <- muts_Edward$rpoB
+muts_Edward_lookup <- muts |>
+  filter(Ref_code == "ALJElab (Edward)") |>
+  mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", "")) |>
+  pull(Genotype, name = rpoB)
 
 # attach rpoB mutations to growth parameters:
 parms <- parms |>
@@ -127,7 +115,7 @@ rm.all()
 
 
 
-# Step 3: Loading and processing pleiotropy data        ----
+# Step 2: Loading and processing pleiotropy data        ----
 # __________________________________________________________
 #input= raw OD data, spec files and genetic information
 #output= Pleiotropy assay growth parameters (growth_parameters_pleiotropy.csv)
@@ -228,7 +216,7 @@ pleioParms$mumax[is.na(pleioParms$mumax)] <- 0
 write_csv(pleioParms, "./output/growth_parameters_pleiotropy.csv")
 
 
-# Step 4: Bayesian modelling of parameters              ----
+# Step 3: Bayesian modelling of parameters              ----
 # __________________________________________________________
 #input= growth_parameters_pleiotropy.csv and growth_parameters_h20.csv
 #output= Bayesian relative parameters bayesian_relative_parameters.csv, also in wide format
@@ -346,7 +334,7 @@ write_csv(wide,"./output/bayesian_relative_parameters_wide.csv" )
 
 
 
-# Step 5: Calculating MICs                              ----
+# Step 4: Calculating MICs                              ----
 # __________________________________________________________
 #input= MIC assay parameters (growth_parameters_h20.csv)
 #output= MICs.csv
@@ -382,7 +370,7 @@ write_csv(MICs, "./output/MICs.csv")
 
 
 
-# Step 6: Epistasis and pleiotropy model                ----
+# Step 5: Epistasis and pleiotropy model                ----
 # __________________________________________________________
 #input=  parameters in the absence of antibiotics
 #output= brms model of epistasis and pleiotropy
