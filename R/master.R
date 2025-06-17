@@ -14,6 +14,8 @@ library(broom)
 library(tidybayes)
 library(ggrepel)
 library(patchwork)
+library(sjPlot)
+library(tidybayes)
 
 source("./R/plotting.R")
 source("./R/util.R")
@@ -375,7 +377,6 @@ write_csv(MICs, "./output/MICs.csv")
 #input=  parameters in the absence of antibiotics
 #output= brms model of epistasis and pleiotropy
 
-
 parms_all <-  read_csv("./output/combined_parms_absence_antibiotics.csv" )
 
 #find overlapping mutations 
@@ -390,37 +391,27 @@ overlap <- unique(overlapping$rpoB)
 
 pleio_mod <- parms_all %>% 
   filter(rpoB %in% overlap) %>% 
-  filter(Species != "Lactiplantibacillus plantarum")
+  filter(Species != "Lactiplantibacillus plantarum") |>
+  mutate(rpoB = fct_relevel(factor(rpoB), "WT")) |>
+  mutate(SetTemperature = fct_relevel(factor(SetTemperature), "37")) |>
+  mutate(Species = fct_relevel(factor(Species), "Escherichia coli"))
 
-
-#some A.  baylyi have NAs- this is be gone after the last temp assay 
-pleio_mod <- pleio_mod %>%
-  mutate(across(c(mumax, maxOD), ~replace_na(., 0)))
-
-dat_maxOD <- pleio_mod %>% 
-  select(c(Species, rpoB, SetTemperature, maxOD))
-
-dat_mumax <- pleio_mod %>% 
-  select(c(Species, rpoB, SetTemperature, mumax))
-
-
-maxOD_mod <- brm(maxOD ~ rpoB*Species + 
+maxOD_fit <- brm(maxOD ~ rpoB*Species + 
              SetTemperature*Species + 
              rpoB*SetTemperature, 
-             data = dat_maxOD)
-summary(maxOD_mod)
-plot(maxOD_mod)
-#try with the 3 way interaction- ask Andrew 
+             data = pleio_mod)
+summary(maxOD_fit)
+plot(maxOD_fit)
 
-
-mumax_mod <- brm(mumax ~ rpoB*Species + 
+mumax_fit <- brm(mumax ~ rpoB*Species + 
                    SetTemperature*Species + 
                    rpoB*SetTemperature, 
-                 data = dat_mumax)
-summary(mumax_mod)
-plot(mumax_mod)
+                 data = pleio_mod)
+summary(mumax_fit)
+plot(mumax_fit)
 
-
+save(mumax_fit, file = "output/brms_fit_SpeciesTMut_mumax.RData")
+save(maxOD_fit, file = "output/brms_fit_SpeciesTMut_maxOD.RData")
 
 # Fig 1: pleiotropy scatterplots                        ----
 # __________________________________________________________
@@ -872,8 +863,6 @@ eclp_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37,
   )
 
 
-
-
 Fig3 <- (ecab_mu + eclp_mu + lpab_mu)/ (ecab_OD + eclp_OD + lpab_OD)
 Fig3 <- Fig3 +plot_annotation(tag_levels = 'A')& 
   theme(plot.tag = element_text(size = 16))
@@ -881,7 +870,21 @@ Fig3
 
 ggexport(Fig3, filename = "./plots/Fig3_epistasis.pdf",  width = 15, height = 10)
 
-#
+# Fig 4: posterior distributions for all parameters of species-T-mut fit ----
+# __________________________________________________________
+#input=  Bayesian relative parameters
+#output= pleiotropy graphs 
+
+load("output/brms_fit_SpeciesTMut_maxOD.RData")
+load("output/brms_fit_SpeciesTMut_mumax.RData")
+
+p_maxOD <- plot_posteriors(maxOD_fit)
+p_mumax <- plot_posteriors(mumax_fit)
+
+p <- (p_maxOD | p_mumax) + 
+  plot_annotation(tag_levels = 'A')
+
+ggsave("plots/posterior_distributions_species_T_mut.pdf", p, width = 12, height = 8)
 
 # SupFig 1: fitness boxplots                            ----
 # __________________________________________________________
@@ -1125,7 +1128,6 @@ schem
 
 #ggexport(schem, filename = "./plots/Fig_schematic.pdf", width=10 ,height= 8 )
 ggsave("./plots/Fig_schematic.pdf", schem, width=4 , height= 4 )
-
 
 
 
