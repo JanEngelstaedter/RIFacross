@@ -366,10 +366,7 @@ WT <- MICs %>% filter (Strain=="WT")
 WT_MIC <- setNames(WT$MIC,WT$Species)
 MICs <- MICs %>% mutate(xfold=MIC/WT_MIC[Species])
 
-
-
 write_csv(MICs, "./output/MICs.csv")
-
 
 
 # Step 5: Epistasis and pleiotropy model                ----
@@ -884,7 +881,7 @@ p_mumax <- plot_posteriors(mumax_fit)
 p <- (p_maxOD | p_mumax) + 
   plot_annotation(tag_levels = 'A')
 
-ggsave("plots/posterior_distributions_species_T_mut.pdf", p, width = 12, height = 8)
+ggsave("plots/posterior_distributions_species_T_mut_HPDI.pdf", p, width = 12, height = 8)
 
 # SupFig 1: fitness boxplots                            ----
 # __________________________________________________________

@@ -40,7 +40,7 @@ plot_growthData <- function(dat, fileName = NULL) {
 
 # plots the posterior distribution of all parameters from a brms fit:
 plot_posteriors <- function(fit) {
-  fit_for_plot <- brms::posterior_summary(fit, probs = c(0.025, 0.975)) |>
+  fit_for_plot <- brms::posterior_summary(fit, probs = c(0.025, 0.975), central = FALSE) |>
     as.data.frame() |>
     rownames_to_column("Parameter") |>
     filter(grepl("^b_", Parameter)) |>
