@@ -20,6 +20,9 @@ library(tidybayes)
 source("./R/plotting.R")
 source("./R/util.R")
 
+globsets <- list(
+  h = 20, # parameter for easylinear
+  random_seed = 22)
 
 # Step 1: Loading and processing MIC assay data         ----
 # __________________________________________________________
@@ -113,18 +116,17 @@ parms$rpoB[parms$Strain =="WT"] <- "WT"
 write_csv(parms, "./output/growth_parameters_h20.csv")
 
 #empty working environment to keep everything clean:
-rm.all()
+rm.all.but()
 
 
 
-# Step 2: Loading and processing pleiotropy data        ----
+# Step 2: Loading and processing data for GxE analyses    ----
 # __________________________________________________________
 #input= raw OD data, spec files and genetic information
-#output= Pleiotropy assay growth parameters (growth_parameters_pleiotropy.csv)
+#output= GxE assay growth parameters (growth_parameters_GxE.csv)
 
-
-projects <- read_csv("./data/global_key.csv")
-projects <- projects %>%  filter(Project_ID== "A_baylyi_Ian" | Project_ID == "E_coli_Alicia")
+projects <- read_csv("./data/global_key.csv") |>
+  filter(Project_ID== "A_baylyi_Ian" | Project_ID == "E_coli_Alicia")
 dat <- vector(mode = "list", length = nrow(projects))
 names(dat) <- projects$Project_ID
 analysis <- dat
@@ -144,7 +146,6 @@ for(i in 1:nrow(projects)) {
   cat("\n")
 }
 
-
 #add the last replicate of A. baylyi
 extra <- processODData(specPath = "./data/A_baylyi_Ian/specs_temp", 
                        dataPath = "./data/A_baylyi_Ian/OD_temp", 
@@ -156,48 +157,31 @@ extra <- processODData(specPath = "./data/A_baylyi_Ian/specs_temp",
   filter(!(Well == "D6" & Time_h > 15)) %>%  #Seems like mutation at end
   select(-ONCtemp)
 
-
 extraAn <- analyseODData(extra,  tmin = 1, h = 20)
 
 analysis$A_baylyi_Ian$pars <- analysis$A_baylyi_Ian$pars %>% 
   bind_rows(extraAn$pars)
 
-
-save(analysis, file = "./output/analysis_pleiotropy.RData")
-
-
-#empty working environment to keep everything clean:
-rm.all()
-
-
-
+save(analysis, file = "./output/analysis_GxE.RData")
 
 #Add genetic mutations 
-
-projects <- read_csv("./data/global_key.csv")
-projects <- projects %>%  filter(Project_ID== "A_baylyi_Ian" | Project_ID == "E_coli_Alicia")
-load("./output/analysis_pleiotropy.RData")
-
-
+load("./output/analysis_GxE.RData")
 
 #remove A. baylyi replicates that didn't grow at 37degrees
 analysis$A_baylyi_Ian$pars <- analysis$A_baylyi_Ian$pars %>% 
   filter(!(Date == "20/09/2024" & Strain %in% c("RM14", "R24")))
- 
 
-
-pleioParms <- NULL
+GxEParms <- NULL
 # turn analysis list into single data frame:
 for(i in 1:nrow(projects)) {
   analysis[[i]]$pars$Project_ID <- projects$Project_ID[i]
   analysis[[i]]$pars$Species <- projects$Species[i]
-  pleioParms <- rbind(pleioParms, analysis[[i]]$pars)
+  GxEParms <- rbind(GxEParms, analysis[[i]]$pars)
 }
-
 
 muts <- read_csv("./data/Genetic_data/muts.csv")
 
-pleioParms <- pleioParms |>
+GxEParms <- GxEParms |>
   left_join(muts, by = join_by(Species, Strain == Genotype)) |>
   select(Project_ID, Species, Strain,
          Nt_mut_name, Nt_mut_name_Ecoli, AA_mut_name, AA_mut_name_Ecoli, 
@@ -205,26 +189,59 @@ pleioParms <- pleioParms |>
          mumax, r2, maxOD) |>
   arrange(Species, Strain)
 
-pleioParms$AA_pos <- as.numeric(gsub("[^0-9]","", pleioParms$AA_mut_name_Ecoli))
-pleioParms <- pleioParms %>% arrange(AA_pos) 
-pleioParms$AA_mut_name_Ecoli[pleioParms$Strain =="WT"] <- "WT"
+GxEParms$AA_pos <- as.numeric(gsub("[^0-9]","", GxEParms$AA_mut_name_Ecoli))
+GxEParms <- GxEParms %>% arrange(AA_pos) 
+GxEParms$AA_mut_name_Ecoli[GxEParms$Strain =="WT"] <- "WT"
 
-pleioParms <- pleioParms %>%
+GxEParms <- GxEParms %>%
   mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", "")) 
-pleioParms$rpoB[pleioParms$Strain =="WT"] <- "WT"
+GxEParms$rpoB[GxEParms$Strain =="WT"] <- "WT"
 
-pleioParms$mumax[is.na(pleioParms$mumax)] <- 0 
+GxEParms$mumax[is.na(GxEParms$mumax)] <- 0 
 
-write_csv(pleioParms, "./output/growth_parameters_pleiotropy.csv")
+write_csv(GxEParms, "./output/growth_parameters_GxE.csv")
 
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
 
-# Step 3: Bayesian modelling of parameters              ----
+# Step 3: Calculating MICs                              ----
 # __________________________________________________________
-#input= growth_parameters_pleiotropy.csv and growth_parameters_h20.csv
+#input= MIC assay parameters (growth_parameters_h20.csv)
+#output= MICs.csv
+
+parms <- read_csv("./output/growth_parameters_h20.csv")
+
+MICs <- parms |>
+  group_by(across(Species:AA_mut_name_Ecoli)) |>
+  summarise(MIC = getMIC(RIFconc, maxOD))
+
+MICs <- MICs %>%
+  mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", "")) 
+MICs$rpoB[MICs$Strain =="WT"] <- "WT"
+MICs$rpoB[MICs$Nt_mut_name =="rpoB_dup1611"] <- "dup1611"
+
+MICs <- MICs %>%
+  mutate(MIC = ifelse(
+    MIC == Inf & (Species == "Acinetobacter baylyi" | Species == "Escherichia coli"), 4096,
+    ifelse(MIC == Inf & Species == "Lactiplantibacillus plantarum", 512, MIC)
+  ))
+
+WT <- MICs %>% filter (Strain=="WT")
+WT_MIC <- setNames(WT$MIC,WT$Species)
+MICs <- MICs %>% mutate(xfold=MIC/WT_MIC[Species])
+
+write_csv(MICs, "./output/MICs.csv")
+
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
+
+
+# Step 4: Fitting separate models to all species x temp conditions              ----
+# __________________________________________________________
+#input= growth_parameters_GxE.csv and growth_parameters_h20.csv
 #output= Bayesian relative parameters bayesian_relative_parameters.csv, also in wide format
 
-
-pleioParms <- read_csv("./output/growth_parameters_pleiotropy.csv")
+GxEParms <- read_csv("./output/growth_parameters_GxE.csv")
 parms <- read_csv("./output/growth_parameters_h20.csv")
 conditions <- read_csv("./data/conditions_key.csv")
 
@@ -232,19 +249,16 @@ conditions <- read_csv("./data/conditions_key.csv")
 parms_0 <- parms %>% filter(RIFconc == 0 ) %>% 
   filter(!is.na(Strain))
 
-parms_all <- bind_rows(pleioParms, parms_0) %>% select(-c(RIFconc, Replicate))
+parms_all <- bind_rows(GxEParms, parms_0) %>% select(-c(RIFconc, Replicate))
 write_csv(parms_all,"./output/combined_parms_absence_antibiotics.csv" )
 parms_all <- read_csv("./output/combined_parms_absence_antibiotics.csv")
 
-dat <- c()
 ratio_maxOD <- c()
 ratio_mumax <- c()
-Strain_name <- c()
 fit_maxOD <- c()
 fit_mumax <- c()
 maxOD <- c()
 mumax <- c()
-
 
 for (i in 1:nrow(conditions)) {    
   dat <- parms_all %>% 
@@ -263,12 +277,8 @@ for (i in 1:nrow(conditions)) {
   fit_maxOD[[condition]] <- brm(maxOD ~ rpoB, data = dat) 
   fit_mumax[[condition]] <- brm(mumax ~ rpoB, data = dat)
   
-  
   posterior_WT_maxOD <- as_draws_df(fit_maxOD[[condition]])%>% pull(b_Intercept) 
   posterior_WT_mumax <- as_draws_df(fit_mumax[[condition]])%>% pull(b_Intercept)
-  
-  
-
   
   for(j in 1:nrow(Strains)){
     if (Strains$rpoB[j] == "WT") {  
@@ -287,29 +297,27 @@ for (i in 1:nrow(conditions)) {
       
       ratio_maxOD[[condition]][[Strain_name]]<- (posterior_mut_maxOD + posterior_WT_maxOD)/ posterior_WT_maxOD 
       ratio_mumax[[condition]][[Strain_name]]<- (posterior_mut_mumax + posterior_WT_mumax)/ posterior_WT_mumax
-      
     }
-    
     maxOD[[condition]][[Strain_name]] <- mean_hdi(ratio_maxOD[[condition]][[Strain_name]]) 
     mumax[[condition]][[Strain_name]] <- mean_hdi(ratio_mumax[[condition]][[Strain_name]])
-    
-    
   }
-  
 }
 
-t_OD <- enframe(maxOD, name = "Condition", value = "relative_maxOD") %>% 
+save(fit_maxOD, file = "output/brms_fit_separate_models_maxOD.RData")
+save(fit_mumax, file = "output/brms_fit_separate_models_mumax.RData")
+
+# wrangling fits into data frames:
+t_maxOD <- enframe(maxOD, name = "Condition", value = "relative_maxOD") %>% 
   unnest_longer(relative_maxOD, indices_to = "rpoB")%>% 
   unnest(relative_maxOD) %>% 
   rename_with(~ paste("relative_maxOD", ., sep = "_"), -c(Condition, rpoB))
 
-t_mu <- enframe(mumax, name = "Condition", value = "relative_mumax") %>% 
+t_mumu <- enframe(mumax, name = "Condition", value = "relative_mumax") %>% 
   unnest_longer(relative_mumax, indices_to = "rpoB")%>% 
   unnest(relative_mumax) %>% 
   rename_with(~ paste("relative_mumax", ., sep = "_"), -c(Condition, rpoB))
 
-
-rel_parms <- left_join(t_OD, t_mu, by= c("rpoB", "Condition"))
+rel_parms <- left_join(t_maxOD, t_mumu, by= c("rpoB", "Condition"))
 rel_parms <- left_join(rel_parms, conditions, by = "Condition") %>% 
   select(Species, Temperature, Condition, rpoB, 
          relative_maxOD_y, relative_maxOD_ymin, relative_maxOD_ymax,
@@ -319,10 +327,8 @@ rel_parms <- left_join(rel_parms, conditions, by = "Condition") %>%
 
 write_csv(rel_parms,"./output/bayesian_relative_parameters.csv" )
 
-
-
 #wide dataframe for graphing
-wide <- rel_parms %>% select( Condition , rpoB, 
+wide <- rel_parms %>% select(Condition , rpoB, 
                              relative_maxOD_y, relative_maxOD_ymin, relative_maxOD_ymax,
                              relative_mumax_y, relative_mumax_ymin, relative_mumax_ymax
 )
@@ -330,49 +336,13 @@ wide <- pivot_wider(wide,  names_from = Condition, values_from = c(relative_maxO
                                                                 relative_mumax_y, relative_mumax_ymin, relative_mumax_ymax))
 write_csv(wide,"./output/bayesian_relative_parameters_wide.csv" )
 
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
 
-
-
-
-
-
-# Step 4: Calculating MICs                              ----
-# __________________________________________________________
-#input= MIC assay parameters (growth_parameters_h20.csv)
-#output= MICs.csv
-
-parms <- read_csv("./output/growth_parameters_h20.csv")
-
-
-MICs <- parms |>
-  group_by(across(Species:AA_mut_name_Ecoli)) |>
-  summarise(MIC = getMIC(RIFconc, maxOD))
-
-
-
-MICs <- MICs %>%
-  mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", "")) 
-MICs$rpoB[MICs$Strain =="WT"] <- "WT"
-MICs$rpoB[MICs$Nt_mut_name =="rpoB_dup1611"] <- "dup1611"
-
-MICs <- MICs %>%
-  mutate(MIC = ifelse(
-    MIC == Inf & (Species == "Acinetobacter baylyi" | Species == "Escherichia coli"), 4096,
-    ifelse(MIC == Inf & Species == "Lactiplantibacillus plantarum", 512, MIC)
-  ))
-
-
-WT <- MICs %>% filter (Strain=="WT")
-WT_MIC <- setNames(WT$MIC,WT$Species)
-MICs <- MICs %>% mutate(xfold=MIC/WT_MIC[Species])
-
-write_csv(MICs, "./output/MICs.csv")
-
-
-# Step 5: Epistasis and pleiotropy model                ----
+# Step 5: Fitting single model to E.coli and A.baylyi data ----
 # __________________________________________________________
 #input=  parameters in the absence of antibiotics
-#output= brms model of epistasis and pleiotropy
+#output= brms model of epistasis and GxE
 
 parms_all <-  read_csv("./output/combined_parms_absence_antibiotics.csv" )
 
@@ -386,7 +356,7 @@ overlapping <- parms_all %>%
 
 overlap <- unique(overlapping$rpoB)
 
-pleio_mod <- parms_all %>% 
+GxE_mod <- parms_all %>% 
   filter(rpoB %in% overlap) %>% 
   filter(Species != "Lactiplantibacillus plantarum") |>
   mutate(rpoB = fct_relevel(factor(rpoB), "WT")) |>
@@ -396,50 +366,51 @@ pleio_mod <- parms_all %>%
 maxOD_fit <- brm(maxOD ~ rpoB*Species + 
              SetTemperature*Species + 
              rpoB*SetTemperature, 
-             data = pleio_mod)
+             data = GxE_mod)
 summary(maxOD_fit)
-plot(maxOD_fit)
+#plot(maxOD_fit)
 
 mumax_fit <- brm(mumax ~ rpoB*Species + 
                    SetTemperature*Species + 
                    rpoB*SetTemperature, 
-                 data = pleio_mod)
+                 data = GxE_mod)
 summary(mumax_fit)
-plot(mumax_fit)
+#plot(mumax_fit)
 
-save(mumax_fit, file = "output/brms_fit_SpeciesTMut_mumax.RData")
-save(maxOD_fit, file = "output/brms_fit_SpeciesTMut_maxOD.RData")
+save(mumax_fit, file = "output/brms_fit_single_model_mumax.RData")
+save(maxOD_fit, file = "output/brms_fit_single_model_maxOD.RData")
 
-# Fig 1: pleiotropy scatterplots                        ----
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
+
+# Fig 1: GxE scatterplots                        ----
 # __________________________________________________________
 #input=  Bayesian relative parameters
-#output= pleiotropy graphs 
+#output= GxE graphs 
 
 wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
 
-set.seed(23) #for geom_repel
+set.seed(globsets$random_seed) #for geom_repel
 
-#pleiotropy E. coli for 2 parameters at 2 temperatures
+#GxE E. coli for 2 parameters at 2 temperatures
 
 #mumax
-pleio_mumax_EC <- ggplot(wide, aes(x= relative_mumax_y_EC30 , y=relative_mumax_y_EC37))+
-  geom_point()+
-  theme_classic()+
-  labs(title = expression(italic("E.coli")), x= expression( mu[max] * "(30"* degree *"C)") , y= expression(mu[max] *"(37"* degree *"C)"))+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
+GxE_mumax_EC <- ggplot(wide, aes(x= relative_mumax_y_EC30 , y=relative_mumax_y_EC37))+
+  geom_point() +
+  theme_classic() +
+  labs(title = expression(italic("E.coli")), x= expression( mu[max] * "(30"* degree *"C)") , y= expression(mu[max] *"(37"* degree *"C)")) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
   geom_errorbarh(aes(xmin= relative_mumax_ymin_EC30,
                      xmax= relative_mumax_ymax_EC30),
-                 alpha = 0.3
-  )+
+                 alpha = 0.3) +
   geom_errorbar(aes(ymin= relative_mumax_ymin_EC37,
                     ymax= relative_mumax_ymax_EC37),
-                alpha = 0.3
-  )+
+                alpha = 0.3) +
   geom_label_repel(aes(label = rpoB), 
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
-                   segment.color = NA)+
+                   segment.color = NA) +
   theme(
     plot.title = element_text(size = 18),
     axis.text.x = element_text(size = 10),
@@ -449,26 +420,23 @@ pleio_mumax_EC <- ggplot(wide, aes(x= relative_mumax_y_EC30 , y=relative_mumax_y
   )
 
 
-
 #maxOD
-pleio_maxOD_EC <- ggplot(wide, aes(x= relative_maxOD_y_EC30 , y=relative_maxOD_y_EC37))+
-  geom_point()+
-  theme_classic()+
+GxE_maxOD_EC <- ggplot(wide, aes(x= relative_maxOD_y_EC30 , y=relative_maxOD_y_EC37)) +
+  geom_point() +
+  theme_classic() +
   labs(title = "",x= expression("maxOD (30"* degree *"C)") , y= expression("maxOD (37"* degree *"C)"))+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
   geom_errorbarh(aes(xmin= relative_maxOD_ymin_EC30,
                      xmax= relative_maxOD_ymax_EC30),
-                 alpha = 0.3
-  )+
+                 alpha = 0.3) +
   geom_errorbar(aes(ymin= relative_maxOD_ymin_EC37,
                     ymax= relative_maxOD_ymax_EC37),
-                alpha = 0.3
-  )+
+                alpha = 0.3) +
   geom_label_repel(aes(label = rpoB), 
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
-                   segment.color = NA)+
+                   segment.color = NA) +
   theme(
     plot.title = element_text(size = 18),
     axis.text.x = element_text(size = 10),
@@ -478,27 +446,25 @@ pleio_maxOD_EC <- ggplot(wide, aes(x= relative_maxOD_y_EC30 , y=relative_maxOD_y
   )
 
 
-#pleiotropy A. baylyi for 2 parameters at 2 temperatures
+#GxE A. baylyi for 2 parameters at 2 temperatures
 
 #mumax
-pleio_mumax_AB <- ggplot(wide, aes(x= relative_mumax_y_AB30 , y=relative_mumax_y_AB37))+
-  geom_point()+
-  theme_classic()+
-  labs(title = expression(italic("A. baylyi")) , x= expression( mu[max] * "(30"* degree *"C)") , y= expression(mu[max]* "(37"* degree *"C)"))+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
+GxE_mumax_AB <- ggplot(wide, aes(x= relative_mumax_y_AB30 , y=relative_mumax_y_AB37)) +
+  geom_point() +
+  theme_classic() +
+  labs(title = expression(italic("A. baylyi")) , x= expression( mu[max] * "(30"* degree *"C)") , y= expression(mu[max]* "(37"* degree *"C)")) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
   geom_errorbarh(aes(xmin= relative_mumax_ymin_AB30,
                      xmax= relative_mumax_ymax_AB30),
-                 alpha = 0.3
-  )+
+                 alpha = 0.3) +
   geom_errorbar(aes(ymin= relative_mumax_ymin_AB37,
                     ymax= relative_mumax_ymax_AB37),
-                alpha = 0.3
-  )+
+                alpha = 0.3) +
   geom_label_repel(aes(label = rpoB), 
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
-                   segment.color = NA)+
+                   segment.color = NA) +
   theme(
     plot.title = element_text(size = 18),
     axis.text.x = element_text(size = 10),
@@ -509,50 +475,43 @@ pleio_mumax_AB <- ggplot(wide, aes(x= relative_mumax_y_AB30 , y=relative_mumax_y
 
 
 #maxOD
-pleio_maxOD_AB <- ggplot(wide, aes(x= relative_maxOD_y_AB30 , y=relative_maxOD_y_AB37))+
-  geom_point()+
-  theme_classic()+
+GxE_maxOD_AB <- ggplot(wide, aes(x= relative_maxOD_y_AB30 , y=relative_maxOD_y_AB37)) +
+  geom_point() +
+  theme_classic() +
   labs(title = "",x= expression("maxOD (30"* degree *"C)") , y= expression("maxOD (37"* degree *"C)"))+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
   geom_errorbarh(aes(xmin= relative_maxOD_ymin_AB30,
                      xmax= relative_maxOD_ymax_AB30),
-                 alpha = 0.3
-  )+
+                 alpha = 0.3) +
   geom_errorbar(aes(ymin= relative_maxOD_ymin_AB37,
                     ymax= relative_maxOD_ymax_AB37),
-                alpha = 0.3
-  )+
+                alpha = 0.3) +
   geom_label_repel(aes(label = rpoB), 
                    size = 4,
                    fill = alpha("white", 0.3), 
                    label.size = NA,
-                   segment.color = NA)+
+                   segment.color = NA) +
   theme(
     plot.title = element_text(size = 18),
     axis.text.x = element_text(size = 10),
     axis.text.y = element_text(size = 10), 
     axis.title.x = element_text(size = 12),
-    axis.title.y = element_text(size = 12)
-  )
+    axis.title.y = element_text(size = 12))
 
-
-
-
-Fig1 <- (pleio_mumax_EC + pleio_mumax_AB )/(pleio_maxOD_EC + pleio_maxOD_AB)
+Fig1 <- (GxE_mumax_EC + GxE_mumax_AB )/(GxE_maxOD_EC + GxE_maxOD_AB)
 Fig1 <- Fig1 + plot_annotation(tag_levels = 'A')& 
   theme(plot.tag = element_text(size = 14))
 
-ggexport(Fig1, filename = "./plots/Fig1_pleiotropy.pdf",  width = 10, height = 10)
+ggsave(Fig1, filename = "./plots/Fig1_GxE.pdf",  width = 10, height = 10)
 
-#
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
 
 
-
-
-# Fig 2: log transformed pleiotropy                     ----
+# Fig 2: log transformed GxE                     ----
 # __________________________________________________________
-#input=  Bayesian relative parameters 
-#output= 
+#input= Bayesian relative parameters 
+#output= plot of log-transformed relative GxE effects
 
 wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
 
@@ -653,14 +612,13 @@ transformed_Ab_graph <- ggplot(transformed, aes(Ab_mumax_transformed, Ab_maxOD_t
   )
 
 
-Fig2 <- transformed_Ec_graph + transformed_Ab_graph
-Fig2 <- Fig2 + plot_annotation(tag_levels = 'A')& 
+Fig2 <- transformed_Ec_graph + transformed_Ab_graph + plot_annotation(tag_levels = 'A')& 
   theme(plot.tag = element_text(size = 14))
-Fig2
 
-ggexport(Fig2, filename = "./plots/Fig2_transformed_pleiotropy.pdf",  width = 10, height = 5)
+ggsave(Fig2, filename = "./plots/Fig2_transformed_GxE.pdf",  width = 10, height = 5)
 
-#
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
 
 # Fig 3: epistasis parameter scatterplots               ----
 # __________________________________________________________
@@ -668,7 +626,7 @@ ggexport(Fig2, filename = "./plots/Fig2_transformed_pleiotropy.pdf",  width = 10
 #output= 
 
 wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
-set.seed(23) #for geom_repel
+set.seed(globsets$random_seed) #for geom_repel
 
 ##TO DO 
 #make sure all are on the same axes and labels are readable
@@ -828,9 +786,6 @@ eclp_mu<- ggplot(wide, aes(x=relative_mumax_y_EC37,
   )
 
 
-
-
-
 eclp_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37, 
                             y=relative_maxOD_y_LP30, 
                             label=rpoB))+
@@ -863,17 +818,19 @@ eclp_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37,
 Fig3 <- (ecab_mu + eclp_mu + lpab_mu)/ (ecab_OD + eclp_OD + lpab_OD)
 Fig3 <- Fig3 +plot_annotation(tag_levels = 'A')& 
   theme(plot.tag = element_text(size = 16))
-Fig3
 
-ggexport(Fig3, filename = "./plots/Fig3_epistasis.pdf",  width = 15, height = 10)
+ggsave(Fig3, filename = "./plots/Fig3_epistasis.pdf",  width = 15, height = 10)
 
-# Fig 4: posterior distributions for all parameters of species-T-mut fit ----
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
+
+# Fig 4: posterior distributions for all parameters of single fit ----
 # __________________________________________________________
 #input=  Bayesian relative parameters
-#output= pleiotropy graphs 
+#output= GxE graphs 
 
-load("output/brms_fit_SpeciesTMut_maxOD.RData")
-load("output/brms_fit_SpeciesTMut_mumax.RData")
+load("output/brms_fit_single_model_maxOD.RData")
+load("output/brms_fit_single_model_mumax.RData")
 
 p_maxOD <- plot_posteriors(maxOD_fit)
 p_mumax <- plot_posteriors(mumax_fit)
@@ -979,9 +936,6 @@ lpmaxOD <- parms %>%
   ylab("")+
   coord_cartesian(ylim=c(0.3,1.15)) 
 
-
-
-
 #MICS
 
 abMIC <- MICs %>% 
@@ -1015,16 +969,13 @@ lpMIC <- MICs %>%
   ylab("")+
   scale_y_continuous(trans='log10')
 
-
-
-
-
 SupFig1 <- (ecmu + abmu + lpmu)/(ecmaxOD + abmaxOD + lpmaxOD) / (ecMIC + abMIC +lpMIC)
 SupFig1 
 
-ggexport(SupFig1, filename = "./plots/SupFig1_boxplots.pdf", width=15 ,height= 15 )
+ggsave(SupFig1, filename = "./plots/SupFig1_boxplots.pdf", width=15 ,height= 15 )
 
-
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
 
 
 # SupFig 2: Temperature assay absolute fitness          ----
@@ -1032,68 +983,64 @@ ggexport(SupFig1, filename = "./plots/SupFig1_boxplots.pdf", width=15 ,height= 1
 #input=  opposite temperature values
 #output= absolute fitness boxplots
 
-pleioParms <- read_csv("./output/growth_parameters_pleiotropy.csv")
+GxEParms <- read_csv("./output/growth_parameters_GxE.csv")
 
-
-abmutemp <- pleioParms %>% 
+abmutemp <- GxEParms %>% 
   filter(Species =="Acinetobacter baylyi") %>% 
-  ggplot(aes(x=rpoB, y=mumax))+
-  geom_boxplot(aes(alpha=0.5))+
+  ggplot(aes(x=rpoB, y=mumax)) +
+  geom_boxplot(aes(alpha=0.5)) +
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
-  theme_classic()+ 
-  labs(title = expression(italic("A. baylyi")), y= "" , x= "")+
+  theme_classic() + 
+  labs(title = expression(italic("A. baylyi")), y= "" , x= "") +
   theme(legend.position= "none", 
         plot.title = element_text(size = 18),
-        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10))+
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10)) +
   coord_cartesian(ylim=c(0.00,0.0215))
 
-ecmutemp <- pleioParms %>% 
+ecmutemp <- GxEParms %>% 
   filter(Species =="Escherichia coli") %>% 
-  ggplot(aes(x=rpoB, y=mumax))+
-  geom_boxplot(aes(alpha=0.5))+
+  ggplot(aes(x=rpoB, y=mumax)) +
+  geom_boxplot(aes(alpha=0.5)) +
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
-  theme_classic()+ 
-  labs(title = expression(italic("E. coli")), y= expression( mu[max]) , x= "")+
+  theme_classic() + 
+  labs(title = expression(italic("E. coli")), y= expression( mu[max]) , x= "") +
   theme(legend.position= "none", 
         plot.title = element_text(size = 18),
         axis.title.y = element_text(size = 18),
-        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10))+
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10)) +
   coord_cartesian(ylim=c(0.00,0.0215))
 
-
-
-abmaxODtemp <- pleioParms %>% 
+abmaxODtemp <- GxEParms %>% 
   filter(Species =="Acinetobacter baylyi") %>% 
-  ggplot(aes(x=rpoB, y=maxOD))+
-  geom_boxplot(aes(alpha=0.5))+
+  ggplot(aes(x=rpoB, y=maxOD)) +
+  geom_boxplot(aes(alpha=0.5)) +
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
-  theme_classic()+ 
+  theme_classic() + 
   theme(legend.position= "none", 
         axis.title.y = element_text(size = 14),
-        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size= 10))+
-  xlab("")+
-  ylab("")+
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size= 10)) +
+  xlab("") +
+  ylab("") +
   coord_cartesian(ylim=c(0,1.16))
 
-ecmaxODtemp <- pleioParms %>% 
+ecmaxODtemp <- GxEParms %>% 
   filter(Species =="Escherichia coli") %>% 
-  ggplot(aes(x=rpoB, y=maxOD))+
-  geom_boxplot(aes(alpha=0.5))+
+  ggplot(aes(x=rpoB, y=maxOD)) +
+  geom_boxplot(aes(alpha=0.5)) +
   geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
-  theme_classic()+ 
+  theme_classic() + 
   theme(legend.position= "none",
-        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 10))+
-  xlab("")+
+        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 10)) +
+  xlab("") +
   coord_cartesian(ylim=c(0,1.16))
-
-
 
 SupFig2 <- (ecmutemp + abmutemp) / (ecmaxODtemp + abmaxODtemp)
 SupFig2
 
-ggexport(SupFig2, filename = "./plots/SupFig2_boxplots_temp.pdf", width=8 ,height= 8 )
+ggsave(SupFig2, filename = "./plots/SupFig2_boxplots_temp.pdf", width=8 ,height= 8 )
 
-
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
 
 # SupFig 3: Trade-off schematic                         ----
 # __________________________________________________________
@@ -1112,19 +1059,18 @@ schem <- ggplot(df, aes(x, y)) +
   #geom_rect(xmin = 1, xmax = 2,  ymin = 1, ymax = 2,  alpha = 0.2, fill = "pink") +
   geom_rect(xmin = 0, xmax = 1,  ymin = 1, ymax = 2,  alpha = 0.2, fill = "grey") +
   geom_rect(xmin = 1, xmax = 2,  ymin = 0, ymax = 1,  alpha = 0.2, fill = "grey") +
-  labs(x = expression("P"[rel]*"(E"[1]*")"))+
+  labs(x = expression("P"[rel]*"(E"[1]*")")) +
   labs(y =expression("P"[rel]*"(E"[2]*")" )) +
-      theme_classic()+
+      theme_classic() +
   geom_segment(aes(x = 0.7, y = 0.7, xend = 1, yend = 1),
                linetype = "solid", color = "steelblue1", size=1.3, 
-               arrow  = arrow(length = unit(0.2, "cm"), type = "closed", ends= "first"))+
+               arrow  = arrow(length = unit(0.2, "cm"), type = "closed", ends= "first")) +
   geom_segment(aes(x = 0.7, y = 0.7, xend = 0.7, yend = 0.9),
                linetype = "solid", color = "gold", size=1.3, 
                arrow  = arrow(length = unit(0.2, "cm"), type = "closed"))
-schem
 
-#ggexport(schem, filename = "./plots/Fig_schematic.pdf", width=10 ,height= 8 )
 ggsave("./plots/Fig_schematic.pdf", schem, width=4 , height= 4 )
 
-
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
 
