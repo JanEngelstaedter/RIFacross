@@ -5,17 +5,17 @@ library(tidyverse)
 library(grow96)
 #library(Biostrings)
 #library(ALJEbinf)
-library(googlesheets4)
-library(UpSetR)
+#library(googlesheets4)
+#library(UpSetR)
 library(varhandle)
-library(ggpubr)
+#library(ggpubr)
 library(brms)
 library(broom)
 library(tidybayes)
 library(ggrepel)
 library(patchwork)
 library(sjPlot)
-library(tidybayes)
+library(xtable)
 
 source("./R/plotting.R")
 source("./R/util.R")
@@ -1073,4 +1073,32 @@ ggsave("./plots/Fig_schematic.pdf", schem, width=4 , height= 4 )
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
+
+# Tables                                                ----
+# __________________________________________________________
+
+load("output/brms_fit_separate_models_maxOD.RData")
+load("output/brms_fit_separate_models_mumax.RData")
+
+models <- names(fit_maxOD)
+for(i in 1:length(models)) {
+  brms::posterior_summary(fit_maxOD[[i]], probs = c(0.025, 0.975), central = FALSE) |>
+    xtable() |>
+    print(file = paste0("tables/posterior_summary_maxOD_", models[i], ".tex"))
+}
+
+load("output/brms_fit_single_model_mumax.RData")
+load("output/brms_fit_single_model_maxOD.RData")
+
+brms::posterior_summary(maxOD_fit, probs = c(0.025, 0.975), central = FALSE) |>
+  xtable() |>
+  print(file = "tables/posterior_summary_singlefit_maxOD.tex")
+
+brms::posterior_summary(mumax_fit, probs = c(0.025, 0.975), central = FALSE) |>
+  xtable() |>
+  print(file = "tables/posterior_summary_singlefit_mumax.tex")
+
+
+
+
 
