@@ -85,3 +85,93 @@ plot_posteriors <- function(fit) {
   return(p)
 }
 
+
+#' An area plot showing different types of epistasis
+#'
+#' @param W1 Trait of Wt in environment or background 1
+#' @param W2 Trait of Wt in environment or background 2
+#' @param min1 Lower range on x axis
+#' @param max1 Upper range on x axis
+#' @param min2 Lower range on y axis
+#' @param max2 Upper range on y axis
+#' @param scale Scaling of axes. Options are "ID" (default, no scaling),
+#' "normalised" (everything scaled multiplicatively to WT values), and
+#' "lognormalised" (scaled multiplicatively to WT values, and then log2 applied).
+#' @param n Resolution (number of tiles) on each axis
+#'
+#' @returns A ggplot object
+#' 
+plot_epistasis_bg <- function(W1, W2, min1, max1, min2, max2, scale = "ID", n = 201) {
+  if (scale == "ID") {
+    M1 <- seq(min1, max1, length.out = n)
+    M2 <- seq(min2, max2, length.out = n)
+    
+    epi <- expand.grid(M1 = M1, M2 = M2) |>
+      rowwise() |>
+      mutate(E = epistasis(W1, W2, M1, M2)) |>
+      mutate(type = epistasis_type(W1, W2, M1, M2)) |>
+      mutate(sign = if_else(E<0, "-", if_else(E>0, "+", ""))) |>
+      mutate(type = as_factor(type, levels = c("magnitude", "sign", "reciprocal")))
+    
+    zeroE_line <- data.frame(M1 = M1) |>
+      rowwise() |>
+      mutate(M2 = zeroE_AB(W1, W2, M1))
+    
+    p <- ggplot(epi) +
+      geom_tile(aes(x = M1, y = M2, fill = type), alpha = 0.3) +
+      geom_line(data = zeroE_line, mapping = aes(x = M1, y = M2), col = "#3B9AB2") 
+  } else if (scale == "normalised") {
+    M1_rel <- seq(min1, max1, length.out = n)
+    M2_rel <- seq(min2, max2, length.out = n)
+    
+    epi <- expand.grid(M1_rel = M1_rel, M2_rel = M2_rel) |>
+      rowwise() |>
+      mutate(M1 = M1_rel * W1, M2 = M2_rel * W2) |>
+      mutate(E = epistasis(W1, W2, M1, M2)) |>
+      mutate(type = epistasis_type(W1, W2, M1, M2)) |>
+      mutate(sign = if_else(E<0, "-", if_else(E>0, "+", "")))
+    
+    zeroE_line <- data.frame(M1_rel = M1_rel) |>
+      rowwise() |>
+      mutate(M1 = M1_rel * W1) |>
+      mutate(M2 = zeroE_AB(W1, W2, M1)) |>
+      mutate(M2_rel = M2/W2)
+    
+    p <- ggplot(epi) +
+      geom_tile(aes(x = M1_rel, y = M2_rel, fill = type), alpha = 0.3) +
+      geom_line(data = zeroE_line, mapping = aes(x = M1_rel, y = M2_rel), col = "#3B9AB2")
+  } else if (scale == "lognormalised") {
+    log2_M1_rel <- seq(min1, max1, length.out = n)
+    log2_M2_rel <- seq(min2, max2, length.out = n)
+    
+    epi <- expand.grid(log2_M1_rel = log2_M1_rel, log2_M2_rel = log2_M2_rel) |>
+      rowwise() |>
+      mutate(M1 = 2^log2_M1_rel * W1, M2 = 2^log2_M2_rel * W2) |>
+      mutate(E = epistasis(W1, W2, M1, M2)) |>
+      mutate(type = epistasis_type(W1, W2, M1, M2)) |>
+      mutate(sign = if_else(E<0, "-", if_else(E>0, "+", "")))
+    
+    zeroE_line <- data.frame(log2_M1_rel = log2_M1_rel) |>
+      rowwise() |>
+      mutate(M1 = 2^log2_M1_rel * W1) |>
+      mutate(M2 = zeroE_AB(W1, W2, M1)) |>
+      mutate(log2_M2_rel = log2(M2/W2))
+    
+    p <- ggplot() +
+      geom_tile(data = epi, mapping = aes(x = log2_M1_rel, y = log2_M2_rel, fill = type), alpha = 0.3) +
+      geom_line(data = zeroE_line, mapping = aes(x = log2_M1_rel, y = log2_M2_rel), col = "#3B9AB2")
+  } else {
+    stop("Unsupported value of scale argument.")
+  }
+  
+  cols <- c("magnitude" = "#3B9AB2", "sign" = "#EBCC2A", "reciprocal" = "#F21A00")
+  p <- p + 
+    scale_x_continuous(limits = c(min1, max1), expand = c(0, 0)) +
+    scale_y_continuous(limits = c(min2, max2), expand = c(0, 0)) +
+    scale_fill_manual(values = cols) +
+    theme_light() +
+    guides(fill=guide_legend(title="Epistasis"))
+  #theme(legend.title = element_blank())
+  
+  return(p)
+}
