@@ -101,7 +101,8 @@ plot_posteriors <- function(fit) {
 #'
 #' @returns A ggplot object
 #' 
-plot_epistasis_bg <- function(W1, W2, min1, max1, min2, max2, scale = "ID", n = 201) {
+plot_epistasis_bg <- function(W1, W2, min1, max1, min2, max2, scale = "ID", n = 201, leglab = "Epistasis") {
+  epi_types <- c("magnitude", "sign", "reciprocal")
   if (scale == "ID") {
     M1 <- seq(min1, max1, length.out = n)
     M2 <- seq(min2, max2, length.out = n)
@@ -111,7 +112,8 @@ plot_epistasis_bg <- function(W1, W2, min1, max1, min2, max2, scale = "ID", n = 
       mutate(E = epistasis(W1, W2, M1, M2)) |>
       mutate(type = epistasis_type(W1, W2, M1, M2)) |>
       mutate(sign = if_else(E<0, "-", if_else(E>0, "+", ""))) |>
-      mutate(type = as_factor(type, levels = c("magnitude", "sign", "reciprocal")))
+      mutate(type = factor(type, levels = epi_types)) |>
+      add_dummy_levels("type", epi_types)
     
     zeroE_line <- data.frame(M1 = M1) |>
       rowwise() |>
@@ -129,7 +131,9 @@ plot_epistasis_bg <- function(W1, W2, min1, max1, min2, max2, scale = "ID", n = 
       mutate(M1 = M1_rel * W1, M2 = M2_rel * W2) |>
       mutate(E = epistasis(W1, W2, M1, M2)) |>
       mutate(type = epistasis_type(W1, W2, M1, M2)) |>
-      mutate(sign = if_else(E<0, "-", if_else(E>0, "+", "")))
+      mutate(sign = if_else(E<0, "-", if_else(E>0, "+", ""))) |>
+      mutate(type = factor(type, levels = epi_types)) |>
+      add_dummy_levels("type", epi_types)
     
     zeroE_line <- data.frame(M1_rel = M1_rel) |>
       rowwise() |>
@@ -149,7 +153,9 @@ plot_epistasis_bg <- function(W1, W2, min1, max1, min2, max2, scale = "ID", n = 
       mutate(M1 = 2^log2_M1_rel * W1, M2 = 2^log2_M2_rel * W2) |>
       mutate(E = epistasis(W1, W2, M1, M2)) |>
       mutate(type = epistasis_type(W1, W2, M1, M2)) |>
-      mutate(sign = if_else(E<0, "-", if_else(E>0, "+", "")))
+      mutate(sign = if_else(E<0, "-", if_else(E>0, "+", ""))) |>
+      mutate(type = factor(type, levels = epi_types)) |>
+      add_dummy_levels("type", epi_types)
     
     zeroE_line <- data.frame(log2_M1_rel = log2_M1_rel) |>
       rowwise() |>
@@ -168,10 +174,40 @@ plot_epistasis_bg <- function(W1, W2, min1, max1, min2, max2, scale = "ID", n = 
   p <- p + 
     scale_x_continuous(limits = c(min1, max1), expand = c(0, 0)) +
     scale_y_continuous(limits = c(min2, max2), expand = c(0, 0)) +
-    scale_fill_manual(values = cols) +
+    scale_fill_manual(values = cols, drop = FALSE) +
     theme_light() +
-    guides(fill=guide_legend(title="Epistasis"))
-  #theme(legend.title = element_blank())
+    guides(fill=guide_legend(title = leglab))
+  return(p)
+}
+
+plot_epistasis_relpars <- function(rel_parms, fit1, fit2, min1, max1, min2, max2, xlab, ylab, leglab = "Epistasis") {
+  W1 <- posterior_summary(fit1, probs = c(0.025, 0.975), central = FALSE)["b_Intercept", "Estimate"]
+  W2 <- posterior_summary(fit2, probs = c(0.025, 0.975), central = FALSE)["b_Intercept", "Estimate"]
   
+  p <- plot_epistasis_bg(W1, W2, min1, max1, min2, max2, scale = "normalised", leglab = leglab)
+  p <- p +
+    geom_point(aes(x = x, y = y), data = rel_parms) +
+    labs(#title = expression(italic("E.coli")), 
+      x = xlab, y = ylab) +
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "#F21A00") +
+    geom_errorbarh(aes(y = y, xmin = xmin, xmax = xmax),
+                   data = rel_parms,
+                   alpha = 0.3) +
+    geom_errorbar(aes(x = x, ymin = ymin, ymax = ymax),
+                  data = rel_parms,
+                  alpha = 0.3) +
+    geom_label_repel(aes(x = x, y = y, label = rpoB),
+                     data = rel_parms,
+                     size = 4,
+                     fill = alpha("white", 0), 
+                     label.size = NA,
+                     segment.color = NA) +
+    theme(
+      plot.title = element_text(size = 18),
+      axis.text.x = element_text(size = 10),
+      axis.text.y = element_text(size = 10), 
+      axis.title.x = element_text(size = 12),
+      axis.title.y = element_text(size = 12)
+    )
   return(p)
 }

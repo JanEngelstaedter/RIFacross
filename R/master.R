@@ -286,17 +286,15 @@ for (i in 1:nrow(conditions)) {
       posterior_mut_maxOD <- as_draws_df(fit_maxOD[[condition]]) %>% pull(b_Intercept)
       posterior_mut_mumax <- as_draws_df(fit_mumax[[condition]]) %>% pull(b_Intercept) 
       
-      ratio_maxOD[[condition]][[Strain_name]]<- posterior_mut_maxOD / posterior_WT_maxOD 
-      
-      ratio_mumax[[condition]][[Strain_name]]<- posterior_mut_mumax / posterior_WT_mumax
-      
+      ratio_maxOD[[condition]][[Strain_name]] <- posterior_mut_maxOD / shuffle(posterior_WT_maxOD) 
+      ratio_mumax[[condition]][[Strain_name]] <- posterior_mut_mumax / shuffle(posterior_WT_mumax)
     } else {
       Strain_name <- paste0("b_rpoB", Strains$rpoB[j]) 
       posterior_mut_maxOD <- as_draws_df(fit_maxOD[[condition]]) %>% pull(Strain_name)
       posterior_mut_mumax <- as_draws_df(fit_mumax[[condition]]) %>% pull(Strain_name) 
       
-      ratio_maxOD[[condition]][[Strain_name]]<- (posterior_mut_maxOD + posterior_WT_maxOD)/ posterior_WT_maxOD 
-      ratio_mumax[[condition]][[Strain_name]]<- (posterior_mut_mumax + posterior_WT_mumax)/ posterior_WT_mumax
+      ratio_maxOD[[condition]][[Strain_name]] <- (posterior_mut_maxOD + posterior_WT_maxOD) / posterior_WT_maxOD 
+      ratio_mumax[[condition]][[Strain_name]] <- (posterior_mut_mumax + posterior_WT_mumax) / posterior_WT_mumax
     }
     maxOD[[condition]][[Strain_name]] <- mean_hdi(ratio_maxOD[[condition]][[Strain_name]]) 
     mumax[[condition]][[Strain_name]] <- mean_hdi(ratio_mumax[[condition]][[Strain_name]])
@@ -312,12 +310,12 @@ t_maxOD <- enframe(maxOD, name = "Condition", value = "relative_maxOD") %>%
   unnest(relative_maxOD) %>% 
   rename_with(~ paste("relative_maxOD", ., sep = "_"), -c(Condition, rpoB))
 
-t_mumu <- enframe(mumax, name = "Condition", value = "relative_mumax") %>% 
+t_mumax <- enframe(mumax, name = "Condition", value = "relative_mumax") %>% 
   unnest_longer(relative_mumax, indices_to = "rpoB")%>% 
   unnest(relative_mumax) %>% 
   rename_with(~ paste("relative_mumax", ., sep = "_"), -c(Condition, rpoB))
 
-rel_parms <- left_join(t_maxOD, t_mumu, by= c("rpoB", "Condition"))
+rel_parms <- left_join(t_maxOD, t_mumax, by= c("rpoB", "Condition"))
 rel_parms <- left_join(rel_parms, conditions, by = "Condition") %>% 
   select(Species, Temperature, Condition, rpoB, 
          relative_maxOD_y, relative_maxOD_ymin, relative_maxOD_ymax,
@@ -338,6 +336,16 @@ write_csv(wide,"./output/bayesian_relative_parameters_wide.csv" )
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
+
+
+# Step 4b: Fitting individual models to each species ----
+# __________________________________________________________
+#input=  parameters in the absence of antibiotics
+#output= brms model of epistasis and GxE
+
+parms_all <- read_csv("./output/combined_parms_absence_antibiotics.csv")
+
+
 
 # Step 5: Fitting single model to E.coli and A.baylyi data ----
 # __________________________________________________________
@@ -383,130 +391,61 @@ save(maxOD_fit, file = "output/brms_fit_single_model_maxOD.RData")
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
-# Fig 1: GxE scatterplots                        ----
+# Fig 1: GxE scatterplots ----
 # __________________________________________________________
 #input=  Bayesian relative parameters
 #output= GxE graphs 
 
-wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
+# preparing data:
+set.seed(globsets$random_seed)
+rel_parms <- read_csv("./output/bayesian_relative_parameters.csv" ) |>
+  select(-Condition) |>
+  pivot_wider(names_from = Temperature, 
+              values_from = c(relative_maxOD_y, relative_maxOD_ymin, relative_maxOD_ymax,
+                              relative_mumax_y, relative_mumax_ymin, relative_mumax_ymax))
 
-set.seed(globsets$random_seed) #for geom_repel
+# mumax plots:
+load(file = "output/brms_fit_separate_models_mumax.RData")
+xlab <- expression(mu[max] * "(30"* degree *"C)")
+ylab <- expression(mu[max] *"(37"* degree *"C)")
+p_data <- rel_parms |>
+  mutate(x = relative_mumax_y_30, xmin = relative_mumax_ymin_30, xmax = relative_mumax_ymax_30,
+         y = relative_mumax_y_37, ymin = relative_mumax_ymin_37, ymax = relative_mumax_ymax_37)
 
-#GxE E. coli for 2 parameters at 2 temperatures
+p_mumax_EC <- plot_epistasis_relpars(p_data |> filter(Species == "Escherichia coli"), 
+                                     fit_mumax[["EC30"]], fit_mumax[["EC37"]],
+                                     0.72, 1.08, 0.75, 1.1, xlab, ylab, leglab = "GxE")
+p_mumax_AB <- plot_epistasis_relpars(p_data |> filter(Species == "Acinetobacter baylyi"), 
+                                     fit_mumax[["AB30"]], fit_mumax[["AB37"]],
+                                     0.65, 1.08, -0.03, 1.1, xlab, ylab, leglab = "GxE")
 
-#mumax
-GxE_mumax_EC <- ggplot(wide, aes(x= relative_mumax_y_EC30 , y=relative_mumax_y_EC37))+
-  geom_point() +
-  theme_classic() +
-  labs(title = expression(italic("E.coli")), x= expression( mu[max] * "(30"* degree *"C)") , y= expression(mu[max] *"(37"* degree *"C)")) +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
-  geom_errorbarh(aes(xmin= relative_mumax_ymin_EC30,
-                     xmax= relative_mumax_ymax_EC30),
-                 alpha = 0.3) +
-  geom_errorbar(aes(ymin= relative_mumax_ymin_EC37,
-                    ymax= relative_mumax_ymax_EC37),
-                alpha = 0.3) +
-  geom_label_repel(aes(label = rpoB), 
-                   size = 4,
-                   fill = alpha("white", 0.3), 
-                   label.size = NA,
-                   segment.color = NA) +
-  theme(
-    plot.title = element_text(size = 18),
-    axis.text.x = element_text(size = 10),
-    axis.text.y = element_text(size = 10), 
-    axis.title.x = element_text(size = 12),
-    axis.title.y = element_text(size = 12)
-  )
+# maxOD plots:
+load(file = "output/brms_fit_separate_models_maxOD.RData")
+xlab <- expression("maxOD (30"* degree *"C)")
+ylab <- expression("maxOD (37"* degree *"C)")
+p_data <- rel_parms |>
+  mutate(x = relative_maxOD_y_30, xmin = relative_maxOD_ymin_30, xmax = relative_maxOD_ymax_30,
+         y = relative_maxOD_y_37, ymin = relative_maxOD_ymin_37, ymax = relative_maxOD_ymax_37)
 
+p_maxOD_EC <- plot_epistasis_relpars(p_data |> filter(Species == "Escherichia coli"), 
+                                     fit_maxOD[["EC30"]], fit_maxOD[["EC37"]],
+                                     0.7, 1.4, 0.76, 1.04, xlab, ylab, leglab = "GxE")
+p_maxOD_AB <- plot_epistasis_relpars(p_data |> filter(Species == "Acinetobacter baylyi"), 
+                                     fit_maxOD[["AB30"]], fit_maxOD[["AB37"]],
+                                     0.8, 1.36, -0.08, 1.4, xlab, ylab, leglab = "GxE")
 
-#maxOD
-GxE_maxOD_EC <- ggplot(wide, aes(x= relative_maxOD_y_EC30 , y=relative_maxOD_y_EC37)) +
-  geom_point() +
-  theme_classic() +
-  labs(title = "",x= expression("maxOD (30"* degree *"C)") , y= expression("maxOD (37"* degree *"C)"))+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
-  geom_errorbarh(aes(xmin= relative_maxOD_ymin_EC30,
-                     xmax= relative_maxOD_ymax_EC30),
-                 alpha = 0.3) +
-  geom_errorbar(aes(ymin= relative_maxOD_ymin_EC37,
-                    ymax= relative_maxOD_ymax_EC37),
-                alpha = 0.3) +
-  geom_label_repel(aes(label = rpoB), 
-                   size = 4,
-                   fill = alpha("white", 0.3), 
-                   label.size = NA,
-                   segment.color = NA) +
-  theme(
-    plot.title = element_text(size = 18),
-    axis.text.x = element_text(size = 10),
-    axis.text.y = element_text(size = 10), 
-    axis.title.x = element_text(size = 12),
-    axis.title.y = element_text(size = 12)
-  )
+Fig1 <- (p_mumax_EC + p_mumax_AB)/(p_maxOD_EC + p_maxOD_AB)
+Fig1 <- Fig1 + plot_layout(guides = "collect") + 
+  plot_annotation(tag_levels = 'A')& 
+  theme(plot.tag = element_text(size = 14),
+        legend.position = "bottom")
 
+#ggsave(Fig1, filename = "./plots/Fig1_GxE.pdf",  width = 10, height = 10)
+ggsave(Fig1, filename = "./plots/Fig1_GxE.png",  width = 10, height = 10)
 
-#GxE A. baylyi for 2 parameters at 2 temperatures
-
-#mumax
-GxE_mumax_AB <- ggplot(wide, aes(x= relative_mumax_y_AB30 , y=relative_mumax_y_AB37)) +
-  geom_point() +
-  theme_classic() +
-  labs(title = expression(italic("A. baylyi")) , x= expression( mu[max] * "(30"* degree *"C)") , y= expression(mu[max]* "(37"* degree *"C)")) +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
-  geom_errorbarh(aes(xmin= relative_mumax_ymin_AB30,
-                     xmax= relative_mumax_ymax_AB30),
-                 alpha = 0.3) +
-  geom_errorbar(aes(ymin= relative_mumax_ymin_AB37,
-                    ymax= relative_mumax_ymax_AB37),
-                alpha = 0.3) +
-  geom_label_repel(aes(label = rpoB), 
-                   size = 4,
-                   fill = alpha("white", 0.3), 
-                   label.size = NA,
-                   segment.color = NA) +
-  theme(
-    plot.title = element_text(size = 18),
-    axis.text.x = element_text(size = 10),
-    axis.text.y = element_text(size = 10), 
-    axis.title.x = element_text(size = 12),
-    axis.title.y = element_text(size = 12)
-  )
-
-
-#maxOD
-GxE_maxOD_AB <- ggplot(wide, aes(x= relative_maxOD_y_AB30 , y=relative_maxOD_y_AB37)) +
-  geom_point() +
-  theme_classic() +
-  labs(title = "",x= expression("maxOD (30"* degree *"C)") , y= expression("maxOD (37"* degree *"C)"))+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
-  geom_errorbarh(aes(xmin= relative_maxOD_ymin_AB30,
-                     xmax= relative_maxOD_ymax_AB30),
-                 alpha = 0.3) +
-  geom_errorbar(aes(ymin= relative_maxOD_ymin_AB37,
-                    ymax= relative_maxOD_ymax_AB37),
-                alpha = 0.3) +
-  geom_label_repel(aes(label = rpoB), 
-                   size = 4,
-                   fill = alpha("white", 0.3), 
-                   label.size = NA,
-                   segment.color = NA) +
-  theme(
-    plot.title = element_text(size = 18),
-    axis.text.x = element_text(size = 10),
-    axis.text.y = element_text(size = 10), 
-    axis.title.x = element_text(size = 12),
-    axis.title.y = element_text(size = 12))
-
-Fig1 <- (GxE_mumax_EC + GxE_mumax_AB )/(GxE_maxOD_EC + GxE_maxOD_AB)
-Fig1 <- Fig1 + plot_annotation(tag_levels = 'A')& 
-  theme(plot.tag = element_text(size = 14))
-
-ggsave(Fig1, filename = "./plots/Fig1_GxE.pdf",  width = 10, height = 10)
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
-
 
 # Fig 2: log transformed GxE                     ----
 # __________________________________________________________
@@ -628,198 +567,70 @@ rm.all.but("globsets")
 wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
 set.seed(globsets$random_seed) #for geom_repel
 
-##TO DO 
-#make sure all are on the same axes and labels are readable
-#add in vertical and horizonal lines to mark the quandrants?
+# mumax plots:
 
-ecab_mu <- ggplot(wide, aes(x=relative_mumax_y_EC37, 
-                               y=relative_mumax_y_AB30, 
-                               label=rpoB))+
-  geom_point() +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
-  coord_cartesian(xlim = c(0.425, 1.4), ylim =c(0.425, 1.4))+
-  labs(x =expression(mu* "max " *italic("(E. coli)")) , y =expression(mu* "max " * italic( "(A. baylyi)")))+
-  theme_classic() +
-  geom_errorbarh(aes(xmin= relative_mumax_ymin_EC37,
-                     xmax= relative_mumax_ymax_EC37),
-                 alpha = 0.3
-  )+
-  geom_errorbar(aes(ymin= relative_mumax_ymin_AB30,
-                    ymax= relative_mumax_ymax_AB30),
-                alpha = 0.3
-  )+
-  geom_label_repel(aes(label = rpoB), 
-                   size = 4,
-                   fill = alpha("white", 0.3), 
-                   label.size = NA,
-                   segment.color = NA)+
-  theme(
-    axis.text.x = element_text(size = 12),
-    axis.text.y = element_text(size = 12), 
-    axis.title.x = element_text(size = 14),
-    axis.title.y = element_text(size = 14)
-  )
+load(file = "output/brms_fit_separate_models_mumax.RData")
+
+xlab <- expression(mu* "max " *italic("(E. coli)"))
+ylab <- expression(mu* "max " * italic( "(A. baylyi)"))
+p_data <- wide |>
+  mutate(x = relative_mumax_y_EC37, xmin = relative_mumax_ymin_EC37, xmax = relative_mumax_ymax_EC37,
+         y = relative_mumax_y_AB30, ymin = relative_mumax_ymin_AB30, ymax = relative_mumax_ymax_AB30)
+p_ECAB_mumax <- plot_epistasis_relpars(p_data, fit_mumax[["EC37"]], fit_mumax[["AB30"]],
+                                       0.425, 1.11, 0.5, 1.45, xlab, ylab)
+
+xlab <- expression(mu* "max " *italic("(E. coli)"))
+ylab <- expression(mu* "max " * italic( "(L. plantarum)"))
+p_data <- wide |>
+  mutate(x = relative_mumax_y_EC37, xmin = relative_mumax_ymin_EC37, xmax = relative_mumax_ymax_EC37,
+         y = relative_mumax_y_LP30, ymin = relative_mumax_ymin_LP30, ymax = relative_mumax_ymax_LP30)
+p_ECLP_mumax <- plot_epistasis_relpars(p_data, fit_mumax[["EC37"]], fit_mumax[["LP30"]],
+                                       0.425, 1.1, 0.5, 1.6, xlab, ylab)
+
+xlab <- expression(mu* "max " *italic("(A. baylyi)"))
+ylab <- expression(mu* "max " * italic( "(L. plantarum)"))
+p_data <- wide |>
+  mutate(x = relative_mumax_y_AB30, xmin = relative_mumax_ymin_AB30, xmax = relative_mumax_ymax_AB30,
+         y = relative_mumax_y_LP30, ymin = relative_mumax_ymin_LP30, ymax = relative_mumax_ymax_LP30)
+p_ABLP_mumax <- plot_epistasis_relpars(p_data, fit_mumax[["EC37"]], fit_mumax[["LP30"]],
+                                       0.425, 1.1, 0.5, 1.45, xlab, ylab)
 
 
+# maxOD plots:
 
-ecab_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37, 
-                            y=relative_maxOD_y_AB30, 
-                            label=rpoB))+
-  geom_point()+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
-  coord_cartesian(xlim = c(0.8, 1.36), ylim =c(0.8, 1.36))+
-  labs(x= expression("maxOD " * italic("(E. coli)")) , y=expression("maxOD " * italic( "(A. baylyi)")))+
-  theme_classic() +
-  geom_errorbarh(aes(xmin= relative_maxOD_ymin_EC37,
-                     xmax= relative_maxOD_ymax_EC37),
-                 alpha = 0.3
-  )+
-  geom_errorbar(aes(ymin= relative_maxOD_ymin_AB30,
-                    ymax= relative_maxOD_ymax_AB30),
-                alpha = 0.3
-  )+
-  geom_label_repel(aes(label = rpoB), 
-                   size = 4,
-                   fill = alpha("white", 0.3), 
-                   label.size = NA,
-                   segment.color = NA)+
-  theme(
-    axis.text.x = element_text(size = 12),
-    axis.text.y = element_text(size = 12), 
-    axis.title.x = element_text(size = 14),
-    axis.title.y = element_text(size = 14)
-  )
+load(file = "output/brms_fit_separate_models_maxOD.RData")
 
+xlab <- expression("maxOD (" * italic( "E. coli") * ")")
+ylab <- expression("maxOD (" * italic( "A. baylyi") * ")")
+p_data <- wide |>
+  mutate(x = relative_maxOD_y_EC37, xmin = relative_maxOD_ymin_EC37, xmax = relative_maxOD_ymax_EC37,
+         y = relative_maxOD_y_AB30, ymin = relative_maxOD_ymin_AB30, ymax = relative_maxOD_ymax_AB30)
+p_ECAB_maxOD <- plot_epistasis_relpars(p_data, fit_maxOD[["EC37"]], fit_maxOD[["AB30"]],
+                                       0.75, 1.26, 0.8, 1.36, xlab, ylab)
 
+xlab <- expression("maxOD (" * italic( "E. coli") * ")")
+ylab <- expression("maxOD (" * italic( "L. plantarum") * ")")
+p_data <- wide |>
+  mutate(x = relative_maxOD_y_EC37, xmin = relative_maxOD_ymin_EC37, xmax = relative_maxOD_ymax_EC37,
+         y = relative_maxOD_y_LP30, ymin = relative_maxOD_ymin_LP30, ymax = relative_maxOD_ymax_LP30)
+p_ECLP_maxOD <- plot_epistasis_relpars(p_data, fit_maxOD[["EC37"]], fit_maxOD[["LP30"]],
+                                       0.8, 1.26, 0.8, 1.36, xlab, ylab)
 
+xlab <- expression("maxOD (" * italic( "A. baylyi") * ")")
+ylab <- expression("maxOD (" * italic( "L. plantarum") * ")")
+p_data <- wide |>
+  mutate(x = relative_maxOD_y_AB30, xmin = relative_maxOD_ymin_AB30, xmax = relative_maxOD_ymax_AB30,
+         y = relative_maxOD_y_LP30, ymin = relative_maxOD_ymin_LP30, ymax = relative_maxOD_ymax_LP30)
+p_ABLP_maxOD <- plot_epistasis_relpars(p_data, fit_maxOD[["EC37"]], fit_maxOD[["LP30"]],
+                                       0.8, 1.26, 0.8, 1.36, xlab, ylab)
 
-#L.plantarum v A.baylyi
-lpab_mu <- ggplot(wide, aes(x=relative_mumax_y_LP30, 
-                            y=relative_mumax_y_AB30, 
-                            label=rpoB))+
-  geom_point() +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
-  coord_cartesian(xlim = c(0.425, 1.4), ylim =c(0.425, 1.4))+
-  labs(x= expression(mu * "max "* italic("(L. plantarum)")), y=expression(mu* "max "* italic("(A. baylyi)")))+
-  theme_classic() +
-  geom_errorbarh(aes(xmin= relative_mumax_ymin_LP30,
-                     xmax= relative_mumax_ymax_LP30),
-                 alpha = 0.3
-  )+
-  geom_errorbar(aes(ymin= relative_mumax_ymin_AB30,
-                    ymax= relative_mumax_ymax_AB30),
-                alpha = 0.3
-  )+
-  geom_label_repel(aes(label = rpoB), 
-                   size = 4,
-                   fill = alpha("white", 0.3), 
-                   label.size = NA,
-                   segment.color = NA)+
-  theme(
-    axis.text.x = element_text(size = 12),
-    axis.text.y = element_text(size = 12), 
-    axis.title.x = element_text(size = 14),
-    axis.title.y = element_text(size = 14)
-  )
+Fig3 <- (p_ECAB_mumax + p_ECLP_mumax + p_ABLP_mumax) / (p_ECAB_maxOD + p_ECLP_maxOD + p_ABLP_maxOD)
+Fig3 <- Fig3 + plot_layout(guides = "collect") + 
+  plot_annotation(tag_levels = 'A')& 
+  theme(plot.tag = element_text(size = 14),
+        legend.position = "bottom")
 
-
-
-lpab_OD <- ggplot(wide, aes(x=relative_maxOD_y_LP30, 
-                            y=relative_maxOD_y_AB30, 
-                            label=rpoB))+
-  geom_point() +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
-  coord_cartesian(xlim = c(0.8, 1.36), ylim =c(0.8, 1.36))+
-  labs(x= expression("maxOD " * italic("(L. plantarum)"))  , y= expression("maxOD "* italic("(A. baylyi)")))+
-  theme_classic() +
-  geom_errorbarh(aes(xmin= relative_maxOD_ymin_LP30,
-                     xmax= relative_maxOD_ymax_LP30),
-                 alpha = 0.3
-  )+
-  geom_errorbar(aes(ymin= relative_maxOD_ymin_AB30,
-                    ymax= relative_maxOD_ymax_AB30),
-                alpha = 0.3
-  )+
-  geom_label_repel(aes(label = rpoB), 
-                   size = 4,
-                   fill = alpha("white", 0.3), 
-                   label.size = NA,
-                   segment.color = NA)+
-  theme(
-    axis.text.x = element_text(size = 12),
-    axis.text.y = element_text(size = 12), 
-    axis.title.x = element_text(size = 14),
-    axis.title.y = element_text(size = 14)
-  )
-
-
-
-
-
-#E.coli v L.plantarum 
-eclp_mu<- ggplot(wide, aes(x=relative_mumax_y_EC37, 
-                           y=relative_mumax_y_LP30, 
-                           label=rpoB))+
-  geom_point() +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
-  coord_cartesian(xlim = c(0.425, 1.4), ylim =c(0.425, 1.4))+
-  labs(x= expression(mu* "max " *italic("(E. coli)")), y= expression(mu* "max " *italic("(L. planturum)")) )+
-  theme_classic() +
-  geom_errorbarh(aes(xmin= relative_mumax_ymin_EC37,
-                     xmax= relative_mumax_ymax_EC37),
-                 alpha = 0.3
-  )+
-  geom_errorbar(aes(ymin= relative_mumax_ymin_LP30,
-                    ymax= relative_mumax_ymax_LP30),
-                alpha = 0.3
-  )+
-  geom_label_repel(aes(label = rpoB), 
-                   size = 4,
-                   fill = alpha("white", 0.3), 
-                   label.size = NA,
-                   segment.color = NA)+
-  theme(
-    axis.text.x = element_text(size = 12),
-    axis.text.y = element_text(size = 12), 
-    axis.title.x = element_text(size = 14),
-    axis.title.y = element_text(size = 14)
-  )
-
-
-eclp_OD <- ggplot(wide, aes(x=relative_maxOD_y_EC37, 
-                            y=relative_maxOD_y_LP30, 
-                            label=rpoB))+
-  geom_point()+
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
-  coord_cartesian(xlim = c(0.8, 1.36), ylim =c(0.8, 1.36))+
-  labs(x= expression("maxOD " *italic("(E. coli)")), y= expression("maxOD " *italic("(L. planturum)")))+
-  theme_classic() +
-  geom_errorbarh(aes(xmin= relative_maxOD_ymin_EC37,
-                     xmax= relative_maxOD_ymax_EC37),
-                 alpha = 0.3
-  )+
-  geom_errorbar(aes(ymin= relative_maxOD_ymin_LP30,
-                    ymax= relative_maxOD_ymax_LP30),
-                alpha = 0.3
-  )+
-  geom_label_repel(aes(label = rpoB), 
-                   size = 4,
-                   fill = alpha("white", 0.3), 
-                   label.size = NA,
-                   segment.color = NA)+
-  theme(
-    axis.text.x = element_text(size = 12),
-    axis.text.y = element_text(size = 12), 
-    axis.title.x = element_text(size = 14),
-    axis.title.y = element_text(size = 14)
-  )
-
-
-Fig3 <- (ecab_mu + eclp_mu + lpab_mu)/ (ecab_OD + eclp_OD + lpab_OD)
-Fig3 <- Fig3 +plot_annotation(tag_levels = 'A')& 
-  theme(plot.tag = element_text(size = 16))
-
-ggsave(Fig3, filename = "./plots/Fig3_epistasis.pdf",  width = 15, height = 10)
+ggsave(Fig3, filename = "./plots/Fig3_epistasis.png",  width = 15, height = 10)
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
