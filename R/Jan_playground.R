@@ -1,3 +1,54 @@
+
+# Comparing global fit with individual fits to species x T conditions ----
+
+# load data and use better names for fit objects:
+load("output/brms_fit_single_model_mumax_threeway.RData")
+load("output/brms_fit_separate_models_mumax.RData")
+
+fit_mumax_ind <- fit_mumax # individual fits
+fit_mumax_glob <- mumax_fit # global fit
+
+rm(fit_mumax, mumax_fit)
+
+# load estimated parameters:
+parms_all <- read_csv("./output/combined_parms_absence_antibiotics.csv")
+
+# example: mumax for E. coli mutation 526D at 37C
+
+comparison <- tibble(WT_ind = as_draws_df(fit_mumax_ind$EC37) %>% pull(b_Intercept)) |>
+  mutate(H526D_ind = WT_ind + as_draws_df(fit_mumax_ind$EC37) %>% pull(b_rpoBH526D)) |>
+  mutate(WT_glob = as_draws_df(fit_mumax_glob) %>% pull(b_Intercept)) |>
+  mutate(H526D_glob = WT_glob + as_draws_df(fit_mumax_glob) %>% pull(b_rpoBH526D))
+
+mumax_estimates_H526D <- parms_all |>
+  filter(Species == "Escherichia coli" & as.integer(SetTemperature) == 37L & rpoB == "H526D") |>
+  pull(mumax)
+
+mumax_estimates_WT <- parms_all |>
+  filter(Species == "Escherichia coli" & as.integer(SetTemperature) == 37L & rpoB == "WT") |>
+  pull(mumax)
+
+ggplot(comparison) +
+  geom_density(aes(WT_ind), col = "blue") +
+  geom_density(aes(WT_glob), col = "blue", linetype = "dashed") +
+  geom_vline(xintercept = mean(mumax_estimates_WT, na.rm = TRUE), col = "blue") +
+  geom_density(aes(H526D_ind), col = "red") +
+  geom_density(aes(H526D_glob), col = "red", linetype = "dashed") +
+  geom_vline(xintercept = mean(mumax_estimates_H526D), col = "red") +
+  theme_minimal()
+
+GxE_mod |>
+  filter(Species == "Escherichia coli" & SetTemperature == "30" & rpoB == "H526Y") |>
+  pull(maxOD) |>
+  mean(na.rm = TRUE)
+
+GxE_mod |>
+  filter(Species == "Escherichia coli" & SetTemperature == "37" & rpoB == "WT") |>
+  pull(mumax) |>
+  mean(na.rm = TRUE)
+
+plot_posteriors(fit_mumax_glob)
+
 # Fig 1_alt: GxE scatterplots but on a non-normalised scale ----
 # __________________________________________________________
 #input=  Bayesian relative parameters
@@ -8,6 +59,8 @@ set.seed(globsets$random_seed)
 
 load(file = "output/brms_fit_separate_models_mumax.RData")
 conditions <- read_csv("./data/conditions_key.csv")
+
+as_draws_df(fit_maxOD[["EC37"]])$b_Intercept |> var()
 
 abs_parms <- fit_mumax |>
   map(brms::posterior_summary, probs = c(0.025, 0.975), central = FALSE) |>

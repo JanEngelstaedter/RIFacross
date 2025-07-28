@@ -47,13 +47,14 @@ plot_posteriors <- function(fit) {
     mutate(Parameter = gsub("^b_", "", Parameter)) |>
     mutate(Parameter = gsub("SpeciesAcinetobacterbaylyi", "AB", Parameter)) |>
     mutate(Parameter = gsub("SetTemperature30", "T30", Parameter)) |>
-    mutate(Parameter = gsub("rpoB.", "", Parameter)) |>
+    mutate(Parameter = gsub("rpoB", "", Parameter)) |>
     filter(Parameter != "Intercept") |>
     mutate(Parameter_group = case_when(
-      grepl("^[0-9]", Parameter) & grepl("AB$", Parameter) ~ "Mutation:Species",
-      grepl("^[0-9]", Parameter) & grepl("T30$", Parameter) ~ "Mutation:Temperature",
-      grepl("^[0-9]", Parameter) ~ "Mutation",
-      .default = "Species & Temperature")) |>
+      Parameter %in% c("AB", "T30", "AB:T30") ~ "Species & Temperature",
+      grepl("AB", Parameter) & grepl("T30$", Parameter) ~ "Mutation:Species:Temperature",
+      grepl("AB$", Parameter) ~ "Mutation:Species",
+      grepl("T30$", Parameter) ~ "Mutation:Temperature",
+      .default = "Mutation")) |>
     mutate(relation_to_zero = case_when(
       Q2.5 > 0 ~ "above",
       Q97.5 < 0 ~ "below",
@@ -65,7 +66,8 @@ plot_posteriors <- function(fit) {
     mutate(Parameter = as_factor(Parameter)) |>
     mutate(Parameter = fct_relevel(Parameter, "AB", "T30", "AB:T30")) |>
     mutate(Parameter_group = as_factor(Parameter_group)) |>
-    mutate(Parameter_group = fct_relevel(Parameter_group, "Species & Temperature"))
+    mutate(Parameter_group = fct_relevel(Parameter_group, "Species & Temperature")) |>
+    mutate(Parameter_group = fct_relevel(Parameter_group, "Mutation:Species:Temperature", after = Inf))
   
   p <- ggplot(fit_for_plot, aes(x = Parameter, y = Estimate, color = relation_to_zero)) +
     geom_point() +

@@ -371,6 +371,8 @@ GxE_mod <- parms_all %>%
   mutate(SetTemperature = fct_relevel(factor(SetTemperature), "37")) |>
   mutate(Species = fct_relevel(factor(Species), "Escherichia coli"))
 
+
+# model fit without 3-way interactions:
 maxOD_fit <- brm(maxOD ~ rpoB*Species + 
              SetTemperature*Species + 
              rpoB*SetTemperature, 
@@ -379,14 +381,36 @@ summary(maxOD_fit)
 #plot(maxOD_fit)
 
 mumax_fit <- brm(mumax ~ rpoB*Species + 
-                   SetTemperature*Species + 
-                   rpoB*SetTemperature, 
+                         SetTemperature*Species + 
+                         rpoB*SetTemperature, 
                  data = GxE_mod)
 summary(mumax_fit)
 #plot(mumax_fit)
 
 save(mumax_fit, file = "output/brms_fit_single_model_mumax.RData")
 save(maxOD_fit, file = "output/brms_fit_single_model_maxOD.RData")
+
+# model fit with 3-way interactions:
+maxOD_fit <- brm(maxOD ~ rpoB*Species*SetTemperature, 
+                 data = GxE_mod)
+summary(maxOD_fit)
+#plot(maxOD_fit)
+
+mumax_fit <- brm(mumax ~ rpoB*Species*SetTemperature, 
+                 data = GxE_mod)
+summary(mumax_fit)
+#plot(mumax_fit)
+
+save(mumax_fit, file = "output/brms_fit_single_model_mumax_3way.RData")
+save(maxOD_fit, file = "output/brms_fit_single_model_maxOD_3way.RData")
+
+
+# comparing the simpler vs. the 3-way model:
+
+bridge1 <- bridge_sampler(fit1)
+bridge2 <- bridge_sampler(fit2)
+bf <- bayes_factor(bridge2, bridge1)
+print(bf)
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
@@ -640,16 +664,31 @@ rm.all.but("globsets")
 #input=  Bayesian relative parameters
 #output= GxE graphs 
 
-load("output/brms_fit_single_model_maxOD.RData")
+# fits without 3-way interactions:
 load("output/brms_fit_single_model_mumax.RData")
+load("output/brms_fit_single_model_maxOD.RData")
 
-p_maxOD <- plot_posteriors(maxOD_fit)
 p_mumax <- plot_posteriors(mumax_fit)
+p_maxOD <- plot_posteriors(maxOD_fit)
 
-p <- (p_maxOD | p_mumax) + 
+p <- (p_mumax | p_maxOD) + 
   plot_annotation(tag_levels = 'A')
 
-ggsave("plots/posterior_distributions_species_T_mut_HPDI.pdf", p, width = 12, height = 8)
+ggsave("plots/posterior_distributions_species_T_mut.pdf", p, width = 12, height = 8)
+
+
+# fits with 3-way interactions:
+load("output/brms_fit_single_model_mumax_3way.RData")
+load("output/brms_fit_single_model_maxOD_3way.RData")
+
+p_mumax <- plot_posteriors(mumax_fit)
+p_maxOD <- plot_posteriors(maxOD_fit)
+
+p <- (p_mumax | p_maxOD) + 
+  plot_annotation(tag_levels = 'A')
+
+ggsave("plots/posterior_distributions_species_T_mut_3way.pdf", p, width = 15, height = 8)
+
 
 # SupFig 1: fitness boxplots                            ----
 # __________________________________________________________
@@ -885,7 +924,7 @@ ggsave("./plots/Fig_schematic.pdf", schem, width=4 , height= 4 )
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
-# Tables                                                ----
+# Tables for model fits                                 ----
 # __________________________________________________________
 
 load("output/brms_fit_separate_models_maxOD.RData")
@@ -909,7 +948,16 @@ brms::posterior_summary(mumax_fit, probs = c(0.025, 0.975), central = FALSE) |>
   xtable() |>
   print(file = "tables/posterior_summary_singlefit_mumax.tex")
 
+load("output/brms_fit_single_model_mumax_3way.RData")
+load("output/brms_fit_single_model_maxOD_3way.RData")
 
+brms::posterior_summary(maxOD_fit, probs = c(0.025, 0.975), central = FALSE) |>
+  xtable() |>
+  print(file = "tables/posterior_summary_singlefit_maxOD_3way.tex")
+
+brms::posterior_summary(mumax_fit, probs = c(0.025, 0.975), central = FALSE) |>
+  xtable() |>
+  print(file = "tables/posterior_summary_singlefit_mumax_3way.tex")
 
 
 
