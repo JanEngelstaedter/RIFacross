@@ -51,9 +51,9 @@ plot_posteriors <- function(fit) {
     filter(Parameter != "Intercept") |>
     mutate(Parameter_group = case_when(
       Parameter %in% c("AB", "T30", "AB:T30") ~ "Species & Temperature",
-      grepl("AB", Parameter) & grepl("T30$", Parameter) ~ "Mutation:Species:Temperature",
-      grepl("AB$", Parameter) ~ "Mutation:Species",
-      grepl("T30$", Parameter) ~ "Mutation:Temperature",
+      grepl("AB", Parameter) & grepl("T30$", Parameter) ~ "Mutation:Species(AB):Temperature(T30)",
+      grepl("AB$", Parameter) ~ "Mutation:Species(AB)",
+      grepl("T30$", Parameter) ~ "Mutation:Temperature(T30)",
       .default = "Mutation")) |>
     mutate(relation_to_zero = case_when(
       Q2.5 > 0 ~ "above",
@@ -63,17 +63,22 @@ plot_posteriors <- function(fit) {
     arrange(Parameter) |>
     ungroup() |>
     arrange(Parameter_group) |>
+    mutate(Pos = str_extract(Parameter, "\\d{3}")) |>
     mutate(Parameter = as_factor(Parameter)) |>
+    mutate(Parameter = fct_reorder(Parameter, Pos)) |>
     mutate(Parameter = fct_relevel(Parameter, "AB", "T30", "AB:T30")) |>
     mutate(Parameter_group = as_factor(Parameter_group)) |>
     mutate(Parameter_group = fct_relevel(Parameter_group, "Species & Temperature")) |>
-    mutate(Parameter_group = fct_relevel(Parameter_group, "Mutation:Species:Temperature", after = Inf))
+    mutate(Parameter_group = fct_relevel(Parameter_group, "Mutation:Species(AB):Temperature(T30)", after = Inf)) |>
+    mutate(y_label = str_extract(Parameter, "\\b[A-Z]\\d{3}[A-Z]\\b")) |>
+    mutate(y_label = if_else(is.na(y_label), Parameter, y_label))
   
   p <- ggplot(fit_for_plot, aes(x = Parameter, y = Estimate, color = relation_to_zero)) +
     geom_point() +
     geom_errorbar(aes(ymin = `Q2.5`, ymax = `Q97.5`), width = 0.2) +
     coord_flip() +
-    scale_x_discrete(limits = rev)  +
+    scale_x_discrete(limits = rev, 
+                     labels = setNames(fit_for_plot$y_label, fit_for_plot$Parameter)) +
     scale_color_manual(
       values = c("above" = "blue", "below" = "red", "includes" = "gray40"),
       labels = NULL
@@ -82,7 +87,7 @@ plot_posteriors <- function(fit) {
     #facet_wrap(~ Parameter_group, scales = "free_y", ncol = 1) +
     labs(y = "Estimate", x = "Parameter") +
     theme_minimal() +
-    theme(legend.position = "none")
+    theme(legend.position = "none", panel.grid.minor.x = element_blank())
   
   return(p)
 }

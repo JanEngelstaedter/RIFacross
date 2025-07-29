@@ -70,3 +70,28 @@ epistasis_type <- function(ab, aB, Ab, AB,
 zeroE_AB <- function(ab, aB, Ab) {
   return(aB + Ab - ab)
 }
+
+
+# helper function written by chatGPT to add empty rows to a data frame so
+# as to always plot all factor levels with the correct colour:
+add_dummy_levels <- function(df, var, all_levels) {
+  missing_levels <- setdiff(all_levels, unique(df[[var]]))
+  if (length(missing_levels) == 0) return(df)
+  
+  dummy <- data.frame(matrix(NA, nrow = length(missing_levels), ncol = ncol(df)))
+  colnames(dummy) <- colnames(df)
+  dummy[[var]] <- factor(missing_levels, levels = all_levels)
+  
+  df[[var]] <- factor(df[[var]], levels = all_levels)
+  rbind(df, dummy)
+}
+
+
+# helper function to (safely) shuffle the order in a vector:
+shuffle <- function(x) {
+  if (length(x) == 1L) {
+    return(x) 
+  } else {
+    return(sample(x, length(x)))
+  }
+}

@@ -16,6 +16,9 @@ library(ggrepel)
 library(patchwork)
 library(sjPlot)
 library(xtable)
+library(bridgesampling)
+library(loo)
+library(bayesplot)
 
 source("./R/plotting.R")
 source("./R/util.R")
@@ -337,16 +340,6 @@ write_csv(wide,"./output/bayesian_relative_parameters_wide.csv" )
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
-
-# Step 4b: Fitting individual models to each species ----
-# __________________________________________________________
-#input=  parameters in the absence of antibiotics
-#output= brms model of epistasis and GxE
-
-parms_all <- read_csv("./output/combined_parms_absence_antibiotics.csv")
-
-
-
 # Step 5: Fitting single model to E.coli and A.baylyi data ----
 # __________________________________________________________
 #input=  parameters in the absence of antibiotics
@@ -407,10 +400,22 @@ save(maxOD_fit, file = "output/brms_fit_single_model_maxOD_3way.RData")
 
 # comparing the simpler vs. the 3-way model:
 
-bridge1 <- bridge_sampler(fit1)
-bridge2 <- bridge_sampler(fit2)
-bf <- bayes_factor(bridge2, bridge1)
-print(bf)
+load("output/brms_fit_single_model_mumax.RData")
+mumax_fit_simple <- mumax_fit
+load("output/brms_fit_single_model_mumax_3way.RData")
+mumax_fit_3way <- mumax_fit
+rm(mumax_fit)
+
+pp_check(mumax_fit_simple)
+pp_check(mumax_fit_3way)
+
+bridge_simple <- bridge_sampler(mumax_fit_simple)
+bridge_3way <- bridge_sampler(mumax_fit_3way)
+bayes_factor(bridge_3way, bridge_simple)
+
+loo_simple <- loo(mumax_fit_simple, moment_match = TRUE)
+loo_3way <- loo(mumax_fit_3way, moment_match = TRUE)
+loo_compare(loo_simple, loo_3way)
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
@@ -471,119 +476,119 @@ ggsave(Fig1, filename = "./plots/Fig1_GxE.png",  width = 10, height = 10)
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
-# Fig 2: log transformed GxE                     ----
+# Old Fig 2: log transformed GxE                     ---
 # __________________________________________________________
 #input= Bayesian relative parameters 
 #output= plot of log-transformed relative GxE effects
+# 
+# wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
+# 
+# transformed <- wide %>% mutate(Ec_mumax_transformed = 
+#                                log2(relative_mumax_y_EC37/relative_mumax_y_EC30)) %>% 
+#                         mutate(Ec_mumax_min_transformed = 
+#                                  log2(relative_mumax_ymin_EC37/relative_mumax_ymin_EC30)) %>% 
+#                         mutate(Ec_mumax_max_transformed = 
+#                                  log2(relative_mumax_ymax_EC37/relative_mumax_ymax_EC30)) %>%
+#                         mutate(Ec_maxOD_transformed = 
+#                                log2(relative_maxOD_y_EC37/relative_maxOD_y_EC30)) %>%
+#                         mutate(Ec_maxOD_min_transformed = 
+#                                  log2(relative_maxOD_ymin_EC37/relative_maxOD_ymin_EC30)) %>% 
+#                         mutate(Ec_maxOD_max_transformed = 
+#                                  log2(relative_maxOD_ymax_EC37/relative_maxOD_ymax_EC30)) %>%
+#                         mutate(Ab_mumax_transformed = 
+#                               log2(relative_mumax_y_AB37/relative_mumax_y_AB30)) %>% 
+#                         mutate(Ab_mumax_min_transformed = 
+#                                  log2(relative_mumax_ymin_AB37/relative_mumax_ymin_AB30)) %>% 
+#                         mutate(Ab_mumax_max_transformed = 
+#                                  log2(relative_mumax_ymax_AB37/relative_mumax_ymax_AB30)) %>%
+#                         mutate(Ab_maxOD_transformed = 
+#                                log2(relative_maxOD_y_AB37/relative_maxOD_y_AB30)) %>% 
+#                         mutate(Ab_maxOD_min_transformed = 
+#                                  log2(relative_maxOD_ymin_AB37/relative_maxOD_ymin_AB30)) %>% 
+#                          mutate(Ab_maxOD_max_transformed = 
+#                                   log2(relative_maxOD_ymax_AB37/relative_maxOD_ymax_AB30)) 
+# 
+# 
+# ####get WT relative parameters?
+# mu_wt <- log2(1/1)
+# od_wt <- log2(1/1)
+# 
+# 
+# set.seed(23) #for geom_repel
+# 
+# transformed_Ec_graph <- ggplot(transformed, aes(Ec_mumax_transformed, Ec_maxOD_transformed)) +
+#   geom_point()+
+#   theme_classic()+
+#   labs(title = expression(italic("E. coli")), 
+#        x = expression("log"[2]* "(" *mu[max] * "37/30)") ,
+#        y = expression("log"[2]* "(maxOD 37/30)") )+
+#  geom_vline(xintercept = mu_wt, linetype = "dotted", color = "blue") +
+#  geom_hline(yintercept = od_wt, linetype = "dotted", color = "blue") +
+#   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
+#   
+#   geom_label_repel(aes(label = rpoB), 
+#                    size = 4,
+#                    fill = alpha("white", 0.3), 
+#                    label.size = NA,
+#                    segment.color = NA) +
+#   geom_errorbarh(aes(xmin= Ec_mumax_min_transformed,
+#                      xmax= Ec_mumax_max_transformed),
+#                  alpha = 0.3
+#   )+
+#   geom_errorbar(aes(ymin= Ec_maxOD_min_transformed,
+#                     ymax= Ec_maxOD_max_transformed),
+#                 alpha = 0.3
+#   )+
+#   theme(
+#     plot.title = element_text(size = 15),
+#     axis.text.x = element_text(size = 10),
+#     axis.text.y = element_text(size = 10), 
+#     axis.title.x = element_text(size = 12),
+#     axis.title.y = element_text(size = 12)
+#   )
+#  
+# 
+# transformed_Ab_graph <- ggplot(transformed, aes(Ab_mumax_transformed, Ab_maxOD_transformed)) +
+#   geom_point()+
+#   theme_classic()+
+#   labs(title = expression(italic("A. baylyi")), 
+#        x = expression("log"[2]* "(" *mu[max] * "37/30)") ,
+#        y = expression("log"[2]* "(maxOD 37/30)") )+
+#   geom_vline(xintercept = mu_wt, linetype = "dotted", color = "blue") +
+#   geom_hline(yintercept = od_wt, linetype = "dotted", color = "blue") +
+#   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
+#   
+#   geom_label_repel(aes(label = rpoB), 
+#                    size = 4,
+#                    fill = alpha("white", 0.3), 
+#                    label.size = NA,
+#                    segment.color = NA) +
+#   geom_errorbarh(aes(xmin= Ab_mumax_min_transformed,
+#                      xmax= Ab_mumax_max_transformed),
+#                  alpha = 0.3
+#   )+
+#   geom_errorbar(aes(ymin= Ab_maxOD_min_transformed,
+#                     ymax= Ab_maxOD_max_transformed),
+#                 alpha = 0.3
+#   )+
+#   theme(
+#     plot.title = element_text(size = 15),
+#     axis.text.x = element_text(size = 10),
+#     axis.text.y = element_text(size = 10), 
+#     axis.title.x = element_text(size = 12),
+#     axis.title.y = element_text(size = 12)
+#   )
+# 
+# 
+# Fig2 <- transformed_Ec_graph + transformed_Ab_graph + plot_annotation(tag_levels = 'A')& 
+#   theme(plot.tag = element_text(size = 14))
+# 
+# ggsave(Fig2, filename = "./plots/Fig2_transformed_GxE.pdf",  width = 10, height = 5)
+# 
+# #empty working environment to keep everything clean:
+# rm.all.but("globsets")
 
-wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
-
-transformed <- wide %>% mutate(Ec_mumax_transformed = 
-                               log2(relative_mumax_y_EC37/relative_mumax_y_EC30)) %>% 
-                        mutate(Ec_mumax_min_transformed = 
-                                 log2(relative_mumax_ymin_EC37/relative_mumax_ymin_EC30)) %>% 
-                        mutate(Ec_mumax_max_transformed = 
-                                 log2(relative_mumax_ymax_EC37/relative_mumax_ymax_EC30)) %>%
-                        mutate(Ec_maxOD_transformed = 
-                               log2(relative_maxOD_y_EC37/relative_maxOD_y_EC30)) %>%
-                        mutate(Ec_maxOD_min_transformed = 
-                                 log2(relative_maxOD_ymin_EC37/relative_maxOD_ymin_EC30)) %>% 
-                        mutate(Ec_maxOD_max_transformed = 
-                                 log2(relative_maxOD_ymax_EC37/relative_maxOD_ymax_EC30)) %>%
-                        mutate(Ab_mumax_transformed = 
-                              log2(relative_mumax_y_AB37/relative_mumax_y_AB30)) %>% 
-                        mutate(Ab_mumax_min_transformed = 
-                                 log2(relative_mumax_ymin_AB37/relative_mumax_ymin_AB30)) %>% 
-                        mutate(Ab_mumax_max_transformed = 
-                                 log2(relative_mumax_ymax_AB37/relative_mumax_ymax_AB30)) %>%
-                        mutate(Ab_maxOD_transformed = 
-                               log2(relative_maxOD_y_AB37/relative_maxOD_y_AB30)) %>% 
-                        mutate(Ab_maxOD_min_transformed = 
-                                 log2(relative_maxOD_ymin_AB37/relative_maxOD_ymin_AB30)) %>% 
-                         mutate(Ab_maxOD_max_transformed = 
-                                  log2(relative_maxOD_ymax_AB37/relative_maxOD_ymax_AB30)) 
-
-
-####get WT relative parameters?
-mu_wt <- log2(1/1)
-od_wt <- log2(1/1)
-
-
-set.seed(23) #for geom_repel
-
-transformed_Ec_graph <- ggplot(transformed, aes(Ec_mumax_transformed, Ec_maxOD_transformed)) +
-  geom_point()+
-  theme_classic()+
-  labs(title = expression(italic("E. coli")), 
-       x = expression("log"[2]* "(" *mu[max] * "37/30)") ,
-       y = expression("log"[2]* "(maxOD 37/30)") )+
- geom_vline(xintercept = mu_wt, linetype = "dotted", color = "blue") +
- geom_hline(yintercept = od_wt, linetype = "dotted", color = "blue") +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
-  
-  geom_label_repel(aes(label = rpoB), 
-                   size = 4,
-                   fill = alpha("white", 0.3), 
-                   label.size = NA,
-                   segment.color = NA) +
-  geom_errorbarh(aes(xmin= Ec_mumax_min_transformed,
-                     xmax= Ec_mumax_max_transformed),
-                 alpha = 0.3
-  )+
-  geom_errorbar(aes(ymin= Ec_maxOD_min_transformed,
-                    ymax= Ec_maxOD_max_transformed),
-                alpha = 0.3
-  )+
-  theme(
-    plot.title = element_text(size = 15),
-    axis.text.x = element_text(size = 10),
-    axis.text.y = element_text(size = 10), 
-    axis.title.x = element_text(size = 12),
-    axis.title.y = element_text(size = 12)
-  )
- 
-
-transformed_Ab_graph <- ggplot(transformed, aes(Ab_mumax_transformed, Ab_maxOD_transformed)) +
-  geom_point()+
-  theme_classic()+
-  labs(title = expression(italic("A. baylyi")), 
-       x = expression("log"[2]* "(" *mu[max] * "37/30)") ,
-       y = expression("log"[2]* "(maxOD 37/30)") )+
-  geom_vline(xintercept = mu_wt, linetype = "dotted", color = "blue") +
-  geom_hline(yintercept = od_wt, linetype = "dotted", color = "blue") +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
-  
-  geom_label_repel(aes(label = rpoB), 
-                   size = 4,
-                   fill = alpha("white", 0.3), 
-                   label.size = NA,
-                   segment.color = NA) +
-  geom_errorbarh(aes(xmin= Ab_mumax_min_transformed,
-                     xmax= Ab_mumax_max_transformed),
-                 alpha = 0.3
-  )+
-  geom_errorbar(aes(ymin= Ab_maxOD_min_transformed,
-                    ymax= Ab_maxOD_max_transformed),
-                alpha = 0.3
-  )+
-  theme(
-    plot.title = element_text(size = 15),
-    axis.text.x = element_text(size = 10),
-    axis.text.y = element_text(size = 10), 
-    axis.title.x = element_text(size = 12),
-    axis.title.y = element_text(size = 12)
-  )
-
-
-Fig2 <- transformed_Ec_graph + transformed_Ab_graph + plot_annotation(tag_levels = 'A')& 
-  theme(plot.tag = element_text(size = 14))
-
-ggsave(Fig2, filename = "./plots/Fig2_transformed_GxE.pdf",  width = 10, height = 5)
-
-#empty working environment to keep everything clean:
-rm.all.but("globsets")
-
-# Fig 3: epistasis parameter scatterplots               ----
+# Fig 2: epistasis scatterplots               ----
 # __________________________________________________________
 #input=  Bayesian relative parameters
 #output= 
@@ -654,12 +659,12 @@ Fig3 <- Fig3 + plot_layout(guides = "collect") +
   theme(plot.tag = element_text(size = 14),
         legend.position = "bottom")
 
-ggsave(Fig3, filename = "./plots/Fig3_epistasis.png",  width = 15, height = 10)
+ggsave(Fig3, filename = "./plots/Fig2_epistasis.png",  width = 15, height = 10)
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
-# Fig 4: posterior distributions for all parameters of single fit ----
+# Fig 3: posterior distributions for single fit ----
 # __________________________________________________________
 #input=  Bayesian relative parameters
 #output= GxE graphs 
@@ -687,7 +692,7 @@ p_maxOD <- plot_posteriors(maxOD_fit)
 p <- (p_mumax | p_maxOD) + 
   plot_annotation(tag_levels = 'A')
 
-ggsave("plots/posterior_distributions_species_T_mut_3way.pdf", p, width = 15, height = 8)
+ggsave("plots/Fig3_posteriors_full_model.pdf", p, width = 10, height = 8)
 
 
 # SupFig 1: fitness boxplots                            ----
@@ -892,37 +897,38 @@ ggsave(SupFig2, filename = "./plots/SupFig2_boxplots_temp.pdf", width=8 ,height=
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
-# SupFig 3: Trade-off schematic                         ----
+# SupFig 3: Trade-off schematic                         ---
 # __________________________________________________________
+# 
+# library(grid)
+# 
+# df <- data.frame(x = c(0.5, 1.5), y = c(0.5, 1.5))
+# 
+# schem <- ggplot(df, aes(x, y)) +
+#   geom_abline(slope = 1, intercept = 0, linetype = "solid") +
+#   coord_fixed() +
+#   xlim(0.5, 1.2) + ylim(0.5, 1.2) +
+#   geom_vline(xintercept = 1, linetype = "dotted") +
+#   geom_hline(yintercept = 1, linetype = "dotted") +
+#   #geom_rect(xmin = 0, xmax = 1, ymin = 0, ymax = 1, alpha = 0.2, fill = "pink") +
+#   #geom_rect(xmin = 1, xmax = 2,  ymin = 1, ymax = 2,  alpha = 0.2, fill = "pink") +
+#   geom_rect(xmin = 0, xmax = 1,  ymin = 1, ymax = 2,  alpha = 0.2, fill = "grey") +
+#   geom_rect(xmin = 1, xmax = 2,  ymin = 0, ymax = 1,  alpha = 0.2, fill = "grey") +
+#   labs(x = expression("P"[rel]*"(E"[1]*")")) +
+#   labs(y =expression("P"[rel]*"(E"[2]*")" )) +
+#       theme_classic() +
+#   geom_segment(aes(x = 0.7, y = 0.7, xend = 1, yend = 1),
+#                linetype = "solid", color = "steelblue1", size=1.3, 
+#                arrow  = arrow(length = unit(0.2, "cm"), type = "closed", ends= "first")) +
+#   geom_segment(aes(x = 0.7, y = 0.7, xend = 0.7, yend = 0.9),
+#                linetype = "solid", color = "gold", size=1.3, 
+#                arrow  = arrow(length = unit(0.2, "cm"), type = "closed"))
+# 
+# ggsave("./plots/Fig_schematic.pdf", schem, width=4 , height= 4 )
+# 
+# #empty working environment to keep everything clean:
+# rm.all.but("globsets")
 
-library(grid)
-
-df <- data.frame(x = c(0.5, 1.5), y = c(0.5, 1.5))
-
-schem <- ggplot(df, aes(x, y)) +
-  geom_abline(slope = 1, intercept = 0, linetype = "solid") +
-  coord_fixed() +
-  xlim(0.5, 1.2) + ylim(0.5, 1.2) +
-  geom_vline(xintercept = 1, linetype = "dotted") +
-  geom_hline(yintercept = 1, linetype = "dotted") +
-  #geom_rect(xmin = 0, xmax = 1, ymin = 0, ymax = 1, alpha = 0.2, fill = "pink") +
-  #geom_rect(xmin = 1, xmax = 2,  ymin = 1, ymax = 2,  alpha = 0.2, fill = "pink") +
-  geom_rect(xmin = 0, xmax = 1,  ymin = 1, ymax = 2,  alpha = 0.2, fill = "grey") +
-  geom_rect(xmin = 1, xmax = 2,  ymin = 0, ymax = 1,  alpha = 0.2, fill = "grey") +
-  labs(x = expression("P"[rel]*"(E"[1]*")")) +
-  labs(y =expression("P"[rel]*"(E"[2]*")" )) +
-      theme_classic() +
-  geom_segment(aes(x = 0.7, y = 0.7, xend = 1, yend = 1),
-               linetype = "solid", color = "steelblue1", size=1.3, 
-               arrow  = arrow(length = unit(0.2, "cm"), type = "closed", ends= "first")) +
-  geom_segment(aes(x = 0.7, y = 0.7, xend = 0.7, yend = 0.9),
-               linetype = "solid", color = "gold", size=1.3, 
-               arrow  = arrow(length = unit(0.2, "cm"), type = "closed"))
-
-ggsave("./plots/Fig_schematic.pdf", schem, width=4 , height= 4 )
-
-#empty working environment to keep everything clean:
-rm.all.but("globsets")
 
 # Tables for model fits                                 ----
 # __________________________________________________________
