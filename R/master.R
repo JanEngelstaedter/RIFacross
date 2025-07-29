@@ -427,41 +427,51 @@ rm.all.but("globsets")
 
 # preparing data:
 set.seed(globsets$random_seed)
-rel_parms <- read_csv("./output/bayesian_relative_parameters.csv" ) |>
-  select(-Condition) |>
-  pivot_wider(names_from = Temperature, 
-              values_from = c(relative_maxOD_y, relative_maxOD_ymin, relative_maxOD_ymax,
-                              relative_mumax_y, relative_mumax_ymin, relative_mumax_ymax))
+# rel_parms <- read_csv("./output/bayesian_relative_parameters.csv" ) |>
+#   select(-Condition) |>
+#   pivot_wider(names_from = Temperature, 
+#               values_from = c(relative_maxOD_y, relative_maxOD_ymin, relative_maxOD_ymax,
+#                               relative_mumax_y, relative_mumax_ymin, relative_mumax_ymax))
 
 # mumax plots:
 load(file = "output/brms_fit_separate_models_mumax.RData")
 xlab <- expression(mu[max] * "(30"* degree *"C)")
 ylab <- expression(mu[max] *"(37"* degree *"C)")
-p_data <- rel_parms |>
-  mutate(x = relative_mumax_y_30, xmin = relative_mumax_ymin_30, xmax = relative_mumax_ymax_30,
-         y = relative_mumax_y_37, ymin = relative_mumax_ymin_37, ymax = relative_mumax_ymax_37)
+# p_data <- rel_parms |>
+#   mutate(x = relative_mumax_y_30, xmin = relative_mumax_ymin_30, xmax = relative_mumax_ymax_30,
+#          y = relative_mumax_y_37, ymin = relative_mumax_ymin_37, ymax = relative_mumax_ymax_37)
+# 
+# p_mumax_EC <- plot_epistasis_relpars(p_data |> filter(Species == "Escherichia coli"), 
+#                                      fit_mumax[["EC30"]], fit_mumax[["EC37"]],
+#                                      0.72, 1.08, 0.75, 1.1, xlab, ylab, leglab = "GxE")
+# p_mumax_AB <- plot_epistasis_relpars(p_data |> filter(Species == "Acinetobacter baylyi"), 
+#                                      fit_mumax[["AB30"]], fit_mumax[["AB37"]],
+#                                      0.65, 1.08, -0.03, 1.1, xlab, ylab, leglab = "GxE")
 
-p_mumax_EC <- plot_epistasis_relpars(p_data |> filter(Species == "Escherichia coli"), 
-                                     fit_mumax[["EC30"]], fit_mumax[["EC37"]],
-                                     0.72, 1.08, 0.75, 1.1, xlab, ylab, leglab = "GxE")
-p_mumax_AB <- plot_epistasis_relpars(p_data |> filter(Species == "Acinetobacter baylyi"), 
-                                     fit_mumax[["AB30"]], fit_mumax[["AB37"]],
-                                     0.65, 1.08, -0.03, 1.1, xlab, ylab, leglab = "GxE")
+p_mumax_EC <- plot_epistasis_abspars(fit_mumax[["EC30"]], fit_mumax[["EC37"]],
+                                     0.0132, 0.0192, 0.0212, 0.0305, xlab, ylab, leglab = "GxE")
+p_mumax_AB <- plot_epistasis_abspars(fit_mumax[["AB30"]], fit_mumax[["AB37"]],
+                                     0.0113, 0.0185, -0.001, 0.021, xlab, ylab, leglab = "GxE")
 
 # maxOD plots:
 load(file = "output/brms_fit_separate_models_maxOD.RData")
 xlab <- expression("maxOD (30"* degree *"C)")
 ylab <- expression("maxOD (37"* degree *"C)")
-p_data <- rel_parms |>
-  mutate(x = relative_maxOD_y_30, xmin = relative_maxOD_ymin_30, xmax = relative_maxOD_ymax_30,
-         y = relative_maxOD_y_37, ymin = relative_maxOD_ymin_37, ymax = relative_maxOD_ymax_37)
+# p_data <- rel_parms |>
+#   mutate(x = relative_maxOD_y_30, xmin = relative_maxOD_ymin_30, xmax = relative_maxOD_ymax_30,
+#          y = relative_maxOD_y_37, ymin = relative_maxOD_ymin_37, ymax = relative_maxOD_ymax_37)
+# 
+# p_maxOD_EC <- plot_epistasis_relpars(p_data |> filter(Species == "Escherichia coli"), 
+#                                      fit_maxOD[["EC30"]], fit_maxOD[["EC37"]],
+#                                      0.7, 1.4, 0.76, 1.04, xlab, ylab, leglab = "GxE")
+# p_maxOD_AB <- plot_epistasis_relpars(p_data |> filter(Species == "Acinetobacter baylyi"), 
+#                                      fit_maxOD[["AB30"]], fit_maxOD[["AB37"]],
+#                                      0.8, 1.36, -0.08, 1.4, xlab, ylab, leglab = "GxE")
 
-p_maxOD_EC <- plot_epistasis_relpars(p_data |> filter(Species == "Escherichia coli"), 
-                                     fit_maxOD[["EC30"]], fit_maxOD[["EC37"]],
-                                     0.7, 1.4, 0.76, 1.04, xlab, ylab, leglab = "GxE")
-p_maxOD_AB <- plot_epistasis_relpars(p_data |> filter(Species == "Acinetobacter baylyi"), 
-                                     fit_maxOD[["AB30"]], fit_maxOD[["AB37"]],
-                                     0.8, 1.36, -0.08, 1.4, xlab, ylab, leglab = "GxE")
+p_maxOD_EC <- plot_epistasis_abspars(fit_maxOD[["EC30"]], fit_maxOD[["EC37"]],
+                                     0.63, 1.17, 0.81, 1.1, xlab, ylab, leglab = "GxE")
+p_maxOD_AB <- plot_epistasis_abspars(fit_maxOD[["AB30"]], fit_maxOD[["AB37"]],
+                                     0.49, 0.8, -0.03, 0.52, xlab, ylab, leglab = "GxE")
 
 Fig1 <- (p_mumax_EC + p_mumax_AB)/(p_maxOD_EC + p_maxOD_AB)
 Fig1 <- Fig1 + plot_layout(guides = "collect") + 
@@ -469,9 +479,7 @@ Fig1 <- Fig1 + plot_layout(guides = "collect") +
   theme(plot.tag = element_text(size = 14),
         legend.position = "bottom")
 
-#ggsave(Fig1, filename = "./plots/Fig1_GxE.pdf",  width = 10, height = 10)
 ggsave(Fig1, filename = "./plots/Fig1_GxE.png",  width = 10, height = 10)
-
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
@@ -593,7 +601,7 @@ rm.all.but("globsets")
 #input=  Bayesian relative parameters
 #output= 
 
-wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
+#wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
 set.seed(globsets$random_seed) #for geom_repel
 
 # mumax plots:
@@ -602,27 +610,35 @@ load(file = "output/brms_fit_separate_models_mumax.RData")
 
 xlab <- expression(mu* "max " *italic("(E. coli)"))
 ylab <- expression(mu* "max " * italic( "(A. baylyi)"))
-p_data <- wide |>
-  mutate(x = relative_mumax_y_EC37, xmin = relative_mumax_ymin_EC37, xmax = relative_mumax_ymax_EC37,
-         y = relative_mumax_y_AB30, ymin = relative_mumax_ymin_AB30, ymax = relative_mumax_ymax_AB30)
-p_ECAB_mumax <- plot_epistasis_relpars(p_data, fit_mumax[["EC37"]], fit_mumax[["AB30"]],
-                                       0.425, 1.11, 0.5, 1.6, xlab, ylab)
+# p_data <- wide |>
+#   mutate(x = relative_mumax_y_EC37, xmin = relative_mumax_ymin_EC37, xmax = relative_mumax_ymax_EC37,
+#          y = relative_mumax_y_AB30, ymin = relative_mumax_ymin_AB30, ymax = relative_mumax_ymax_AB30)
+# p_ECAB_mumax <- plot_epistasis_relpars(p_data, fit_mumax[["EC37"]], fit_mumax[["AB30"]],
+#                                        0.425, 1.11, 0.5, 1.6, xlab, ylab)
+
+p_ECAB_mumax <- plot_epistasis_abspars(fit_mumax[["EC37"]], fit_mumax[["AB30"]],
+                                       0.021, 0.0307, 0.0113, 0.0185, xlab, ylab)
 
 xlab <- expression(mu* "max " *italic("(E. coli)"))
 ylab <- expression(mu* "max " * italic( "(L. plantarum)"))
-p_data <- wide |>
-  mutate(x = relative_mumax_y_EC37, xmin = relative_mumax_ymin_EC37, xmax = relative_mumax_ymax_EC37,
-         y = relative_mumax_y_LP30, ymin = relative_mumax_ymin_LP30, ymax = relative_mumax_ymax_LP30)
-p_ECLP_mumax <- plot_epistasis_relpars(p_data, fit_mumax[["EC37"]], fit_mumax[["LP30"]],
-                                       0.425, 1.11, 0.5, 1.6, xlab, ylab)
+# p_data <- wide |>
+#   mutate(x = relative_mumax_y_EC37, xmin = relative_mumax_ymin_EC37, xmax = relative_mumax_ymax_EC37,
+#          y = relative_mumax_y_LP30, ymin = relative_mumax_ymin_LP30, ymax = relative_mumax_ymax_LP30)
+# p_ECLP_mumax <- plot_epistasis_relpars(p_data, fit_mumax[["EC37"]], fit_mumax[["LP30"]],
+#                                        0.425, 1.11, 0.5, 1.6, xlab, ylab)
+p_ECLP_mumax <- plot_epistasis_abspars(fit_mumax[["EC37"]], fit_mumax[["LP30"]],
+                                       0.0123, 0.0305, 0.0037, 0.011, xlab, ylab)
+
 
 xlab <- expression(mu* "max " *italic("(A. baylyi)"))
 ylab <- expression(mu* "max " * italic( "(L. plantarum)"))
-p_data <- wide |>
-  mutate(x = relative_mumax_y_AB30, xmin = relative_mumax_ymin_AB30, xmax = relative_mumax_ymax_AB30,
-         y = relative_mumax_y_LP30, ymin = relative_mumax_ymin_LP30, ymax = relative_mumax_ymax_LP30)
-p_ABLP_mumax <- plot_epistasis_relpars(p_data, fit_mumax[["EC37"]], fit_mumax[["LP30"]],
-                                       0.425, 1.1, 0.5, 1.6, xlab, ylab)
+# p_data <- wide |>
+#   mutate(x = relative_mumax_y_AB30, xmin = relative_mumax_ymin_AB30, xmax = relative_mumax_ymax_AB30,
+#          y = relative_mumax_y_LP30, ymin = relative_mumax_ymin_LP30, ymax = relative_mumax_ymax_LP30)
+# p_ABLP_mumax <- plot_epistasis_relpars(p_data, fit_mumax[["AB30"]], fit_mumax[["LP30"]],
+#                                        0.425, 1.1, 0.5, 1.6, xlab, ylab)
+p_ABLP_mumax <- plot_epistasis_abspars(fit_mumax[["AB30"]], fit_mumax[["LP30"]],
+                                       0.0121, 0.0179, 0.0049, 0.0077, xlab, ylab)
 
 
 # maxOD plots:
@@ -631,27 +647,35 @@ load(file = "output/brms_fit_separate_models_maxOD.RData")
 
 xlab <- expression("maxOD (" * italic( "E. coli") * ")")
 ylab <- expression("maxOD (" * italic( "A. baylyi") * ")")
-p_data <- wide |>
-  mutate(x = relative_maxOD_y_EC37, xmin = relative_maxOD_ymin_EC37, xmax = relative_maxOD_ymax_EC37,
-         y = relative_maxOD_y_AB30, ymin = relative_maxOD_ymin_AB30, ymax = relative_maxOD_ymax_AB30)
-p_ECAB_maxOD <- plot_epistasis_relpars(p_data, fit_maxOD[["EC37"]], fit_maxOD[["AB30"]],
-                                       0.75, 1.26, 0.8, 1.36, xlab, ylab)
+# p_data <- wide |>
+#   mutate(x = relative_maxOD_y_EC37, xmin = relative_maxOD_ymin_EC37, xmax = relative_maxOD_ymax_EC37,
+#          y = relative_maxOD_y_AB30, ymin = relative_maxOD_ymin_AB30, ymax = relative_maxOD_ymax_AB30)
+# p_ECAB_maxOD <- plot_epistasis_relpars(p_data, fit_maxOD[["EC37"]], fit_maxOD[["AB30"]],
+#                                        0.75, 1.26, 0.8, 1.36, xlab, ylab)
+p_ECAB_maxOD <- plot_epistasis_abspars(fit_maxOD[["EC37"]], fit_maxOD[["AB30"]],
+                                       0.81, 1.1, 0.48, 0.8, xlab, ylab)
+
 
 xlab <- expression("maxOD (" * italic( "E. coli") * ")")
 ylab <- expression("maxOD (" * italic( "L. plantarum") * ")")
-p_data <- wide |>
-  mutate(x = relative_maxOD_y_EC37, xmin = relative_maxOD_ymin_EC37, xmax = relative_maxOD_ymax_EC37,
-         y = relative_maxOD_y_LP30, ymin = relative_maxOD_ymin_LP30, ymax = relative_maxOD_ymax_LP30)
-p_ECLP_maxOD <- plot_epistasis_relpars(p_data, fit_maxOD[["EC37"]], fit_maxOD[["LP30"]],
-                                       0.8, 1.26, 0.8, 1.36, xlab, ylab)
+# p_data <- wide |>
+#   mutate(x = relative_maxOD_y_EC37, xmin = relative_maxOD_ymin_EC37, xmax = relative_maxOD_ymax_EC37,
+#          y = relative_maxOD_y_LP30, ymin = relative_maxOD_ymin_LP30, ymax = relative_maxOD_ymax_LP30)
+# p_ECLP_maxOD <- plot_epistasis_relpars(p_data, fit_maxOD[["EC37"]], fit_maxOD[["LP30"]],
+#                                        0.8, 1.26, 0.8, 1.36, xlab, ylab)
+p_ECLP_maxOD <- plot_epistasis_abspars(fit_maxOD[["EC37"]], fit_maxOD[["LP30"]],
+                                       0.94, 1.08, 0.52, 0.77, xlab, ylab)
 
 xlab <- expression("maxOD (" * italic( "A. baylyi") * ")")
 ylab <- expression("maxOD (" * italic( "L. plantarum") * ")")
-p_data <- wide |>
-  mutate(x = relative_maxOD_y_AB30, xmin = relative_maxOD_ymin_AB30, xmax = relative_maxOD_ymax_AB30,
-         y = relative_maxOD_y_LP30, ymin = relative_maxOD_ymin_LP30, ymax = relative_maxOD_ymax_LP30)
-p_ABLP_maxOD <- plot_epistasis_relpars(p_data, fit_maxOD[["EC37"]], fit_maxOD[["LP30"]],
-                                       0.8, 1.26, 0.8, 1.36, xlab, ylab)
+# p_data <- wide |>
+#   mutate(x = relative_maxOD_y_AB30, xmin = relative_maxOD_ymin_AB30, xmax = relative_maxOD_ymax_AB30,
+#          y = relative_maxOD_y_LP30, ymin = relative_maxOD_ymin_LP30, ymax = relative_maxOD_ymax_LP30)
+# p_ABLP_maxOD <- plot_epistasis_relpars(p_data, fit_maxOD[["EC37"]], fit_maxOD[["LP30"]],
+#                                        0.8, 1.26, 0.8, 1.36, xlab, ylab)
+p_ABLP_maxOD <- plot_epistasis_abspars(fit_maxOD[["AB30"]], fit_maxOD[["LP30"]],
+                                       0.49, 0.75, 0.52, 0.66, xlab, ylab)
+
 
 Fig3 <- (p_ECAB_mumax + p_ECLP_mumax + p_ABLP_mumax) / (p_ECAB_maxOD + p_ECLP_maxOD + p_ABLP_maxOD)
 Fig3 <- Fig3 + plot_layout(guides = "collect") + 

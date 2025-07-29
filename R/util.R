@@ -95,3 +95,20 @@ shuffle <- function(x) {
     return(sample(x, length(x)))
   }
 }
+
+
+# function to prepare posterior predictions from model fit:
+get_post_predictions <- function(fit) {
+  post_pred <- fitted(fit, newdata = data.frame(rpoB = levels(fit$data$rpoB)), summary = FALSE) |>
+    as_tibble(.name_repair = "minimal") %>%
+    setNames(levels(fit$data$rpoB)) %>%
+    pivot_longer(cols = everything(), names_to = "rpoB", values_to = "y_pred") |>
+    group_by(rpoB) |>
+    summarise(
+      mean = mean(y_pred),
+      hdi_lower = hdi(y_pred, prob = 0.95)[1],
+      hdi_upper = hdi(y_pred, prob = 0.95)[2],
+      .groups = "drop"
+    )
+  return(post_pred)
+}

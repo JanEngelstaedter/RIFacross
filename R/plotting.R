@@ -218,3 +218,46 @@ plot_epistasis_relpars <- function(rel_parms, fit1, fit2, min1, max1, min2, max2
     )
   return(p)
 }
+
+
+
+plot_epistasis_abspars <- function(fit1, fit2, min1, max1, min2, max2, xlab, ylab, leglab = "Epistasis") {
+  post_pred_1 <- get_post_predictions(fit1)
+  post_pred_2 <- get_post_predictions(fit2)
+  
+  abs_parms <- post_pred_1 |>
+    rename(x = mean, xmin = hdi_lower, xmax = hdi_upper) |>
+    left_join(post_pred_2, by = join_by(rpoB)) |>
+    rename(y = mean, ymin = hdi_lower, ymax = hdi_upper) |>
+    filter(!is.na(x) & !is.na(y))
+  
+  W1 <- abs_parms |> filter(rpoB == "WT") |> pull(x)
+  W2 <- abs_parms |> filter(rpoB == "WT") |> pull(y)
+  
+  p <- plot_epistasis_bg(W1, W2, min1, max1, min2, max2, leglab = leglab)
+  p <- p +
+    geom_point(aes(x = x, y = y), data = abs_parms) +
+    labs(x = xlab, y = ylab) +
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "#F21A00") +
+    geom_errorbarh(aes(y = y, xmin = xmin, xmax = xmax),
+                   data = abs_parms,
+                   alpha = 0.3) +
+    geom_errorbar(aes(x = x, ymin = ymin, ymax = ymax),
+                  data = abs_parms,
+                  alpha = 0.3) +
+    geom_label_repel(aes(x = x, y = y, label = rpoB),
+                     data = abs_parms,
+                     size = 4,
+                     fill = alpha("white", 0), 
+                     label.size = NA,
+                     segment.color = NA) +
+    theme(
+      plot.title = element_text(size = 18),
+      axis.text.x = element_text(size = 10),
+      axis.text.y = element_text(size = 10), 
+      axis.title.x = element_text(size = 12),
+      axis.title.y = element_text(size = 12)
+    )
+  return(p)
+}
+
