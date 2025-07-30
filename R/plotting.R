@@ -194,8 +194,7 @@ plot_epistasis_relpars <- function(rel_parms, fit1, fit2, min1, max1, min2, max2
   p <- plot_epistasis_bg(W1, W2, min1, max1, min2, max2, scale = "normalised", leglab = leglab)
   p <- p +
     geom_point(aes(x = x, y = y), data = rel_parms) +
-    labs(#title = expression(italic("E.coli")), 
-      x = xlab, y = ylab) +
+    labs(x = xlab, y = ylab) +
     geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "#F21A00") +
     geom_errorbarh(aes(y = y, xmin = xmin, xmax = xmax),
                    data = rel_parms,

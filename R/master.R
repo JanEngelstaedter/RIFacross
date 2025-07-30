@@ -420,6 +420,57 @@ loo_compare(loo_simple, loo_3way)
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
+# Fig 0: Info plot explaining following figures ----
+# __________________________________________________________
+#input=  Bayesian relative parameters
+#output= GxE graphs 
+
+W1 <- 1
+W2 <- 0.8
+M1 <- 0.5
+M2 <-0.6
+arrow_offset <- 0.02
+arrow_length <- unit(0.02, "npc")
+label_a <- "italic(a)"
+label_b2 <- "italic(b)[2]"
+label_bM <- "italic(b)[M]"
+label_bM2 <- "italic(b)[M2]"
+
+p <- plot_epistasis_bg(W1, W2, 0, 1.2, 0, 1.2) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "#F21A00") +
+  scale_x_continuous(breaks = c(W1, M1), labels = c(expression(italic(W)[1]), expression(italic(M)[1])), 
+                     limits = c(0, 1.2), expand = c(0, 0)) +
+  scale_y_continuous(breaks = c(W2, M2), labels = c(expression(italic(W)[2]), expression(italic(M)[2])),
+                     limits = c(0, 1.2), expand = c(0, 0)) +
+  labs(x = "Trait in species 1", y = "Trait in species 2") +
+  annotate("point", W1, W2, size = 4) +
+  annotate("text", x = W1 + 0.05, y = W2 - 0.03, label = "bold(W)", parse = TRUE, size = 5) +
+  annotate("point", M1, M2, size = 4) +
+  annotate("text", x = M1 - 0.04, y = M2 + 0.03, label = "bold(M)", parse = TRUE, size = 5) +
+  annotate("segment", x = 0, y = W1, xend = W1, yend = W1,
+           arrow = arrow(type = "closed", length = arrow_length)) +
+  annotate("text", x = W1/2, y = W1 + 0.03, 
+           label = label_a, parse = TRUE, size = 4) +
+  annotate("segment", x = W1, y = W1, xend = W1, yend = W2 + arrow_offset,
+           arrow = arrow(type = "closed", length = arrow_length)) +
+  annotate("text", x = W1 + 0.04, y = W2 + (W1-W2)/2 + 0.01, 
+           label = label_b2, parse = TRUE, size = 4) +
+  annotate("segment", x = W1, y = W2 + 0.005, xend = M1, yend = W2 - (W1 - M1) + 0.005,
+           arrow = arrow(type = "closed", length = arrow_length)) +
+  annotate("text", x = M1 + (W1 - M1)/2 + 0.01, y = W2 - (W1 - M1) + (W1 - M1)/2 - 0.05, 
+           label = label_bM, parse = TRUE, size = 4) +
+  annotate("segment", x = M1, y = W2 - (W1 - M1), xend = M1, yend = M2 - arrow_offset,
+           arrow = arrow(type = "closed", length = arrow_length)) +
+  annotate("text", x = M1 + 0.04, y = W2 - (W1 - M1) + (M2 - W2 + (W1 - M1))/2, 
+           label = label_bM2, parse = TRUE, size = 4) +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(size = 4 * 2.83),
+        axis.text.y = element_text(size = 4 * 2.83), 
+        axis.title.x = element_text(size = 12),
+        axis.title.y = element_text(size = 12))
+
+ggsave("plots/Fig1_explainer.png", plot = p, height = 5, width = 4.8)
+
 # Fig 1: GxE scatterplots ----
 # __________________________________________________________
 #input=  Bayesian relative parameters
