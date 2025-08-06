@@ -112,3 +112,11 @@ get_post_predictions <- function(fit) {
     )
   return(post_pred)
 }
+
+
+# function to determine plotting range from data:
+range_with_padding <- function(x, mult = 0.05) {
+  r <- range(x, na.rm = TRUE)
+  padding <- diff(r) * mult
+  r + c(-padding, padding)
+}

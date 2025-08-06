@@ -10,6 +10,7 @@ library(grow96)
 library(varhandle)
 #library(ggpubr)
 library(brms)
+options(brms.backend = "cmdstanr")
 library(broom)
 library(tidybayes)
 library(ggrepel)
@@ -25,7 +26,8 @@ source("./R/util.R")
 
 globsets <- list(
   h = 20, # parameter for easylinear
-  random_seed = 22)
+  random_seed = 22,
+  cred_int = 0.95)
 
 # Step 1: Loading and processing MIC assay data         ----
 # __________________________________________________________
@@ -499,9 +501,11 @@ ylab <- expression(mu[max] *"(37"* degree *"C)")
 #                                      fit_mumax[["AB30"]], fit_mumax[["AB37"]],
 #                                      0.65, 1.08, -0.03, 1.1, xlab, ylab, leglab = "GxE")
 
-p_mumax_EC <- plot_epistasis_abspars(fit_mumax[["EC30"]], fit_mumax[["EC37"]],
+p_mumax_EC <- plot_epistasis_abspars(get_post_predictions(fit_mumax[["EC30"]]), 
+                                     get_post_predictions(fit_mumax[["EC37"]]),
                                      0.0132, 0.0192, 0.0212, 0.0305, xlab, ylab, leglab = "GxE")
-p_mumax_AB <- plot_epistasis_abspars(fit_mumax[["AB30"]], fit_mumax[["AB37"]],
+p_mumax_AB <- plot_epistasis_abspars(get_post_predictions(fit_mumax[["AB30"]]), 
+                                     get_post_predictions(fit_mumax[["AB37"]]),
                                      0.0113, 0.0185, -0.001, 0.021, xlab, ylab, leglab = "GxE")
 
 # maxOD plots:
@@ -519,9 +523,11 @@ ylab <- expression("maxOD (37"* degree *"C)")
 #                                      fit_maxOD[["AB30"]], fit_maxOD[["AB37"]],
 #                                      0.8, 1.36, -0.08, 1.4, xlab, ylab, leglab = "GxE")
 
-p_maxOD_EC <- plot_epistasis_abspars(fit_maxOD[["EC30"]], fit_maxOD[["EC37"]],
+p_maxOD_EC <- plot_epistasis_abspars(get_post_predictions(fit_maxOD[["EC30"]]), 
+                                     get_post_predictions(fit_maxOD[["EC37"]]),
                                      0.63, 1.17, 0.81, 1.1, xlab, ylab, leglab = "GxE")
-p_maxOD_AB <- plot_epistasis_abspars(fit_maxOD[["AB30"]], fit_maxOD[["AB37"]],
+p_maxOD_AB <- plot_epistasis_abspars(get_post_predictions(fit_maxOD[["AB30"]]), 
+                                     get_post_predictions(fit_maxOD[["AB37"]]),
                                      0.49, 0.8, -0.03, 0.52, xlab, ylab, leglab = "GxE")
 
 Fig1 <- (p_mumax_EC + p_mumax_AB)/(p_maxOD_EC + p_maxOD_AB)

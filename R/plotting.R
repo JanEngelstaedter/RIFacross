@@ -219,11 +219,10 @@ plot_epistasis_relpars <- function(rel_parms, fit1, fit2, min1, max1, min2, max2
 }
 
 
-
-plot_epistasis_abspars <- function(fit1, fit2, min1, max1, min2, max2, xlab, ylab, leglab = "Epistasis") {
-  post_pred_1 <- get_post_predictions(fit1)
-  post_pred_2 <- get_post_predictions(fit2)
-  
+# function to produce GxE or GxG plots with background indicating epistasis type:
+plot_epistasis_abspars <- function(post_pred_1, post_pred_2, 
+                                   xlab = "", ylab = "", leglab = "Epistasis",
+                                   xlimits = NULL, ylimits = NULL) {
   abs_parms <- post_pred_1 |>
     rename(x = mean, xmin = hdi_lower, xmax = hdi_upper) |>
     left_join(post_pred_2, by = join_by(rpoB)) |>
@@ -233,7 +232,14 @@ plot_epistasis_abspars <- function(fit1, fit2, min1, max1, min2, max2, xlab, yla
   W1 <- abs_parms |> filter(rpoB == "WT") |> pull(x)
   W2 <- abs_parms |> filter(rpoB == "WT") |> pull(y)
   
-  p <- plot_epistasis_bg(W1, W2, min1, max1, min2, max2, leglab = leglab)
+  if (is.null(xlimits)) {
+    xlimits <- range_with_padding(c(abs_parms$xmin, abs_parms$xmax))
+  }
+  if (is.null(ylimits)) {
+    ylimits <- range_with_padding(c(abs_parms$ymin, abs_parms$ymax))
+  }
+  
+  p <- plot_epistasis_bg(W1, W2, xlimits[1], xlimits[2], ylimits[1], ylimits[2], leglab = leglab)
   p <- p +
     geom_point(aes(x = x, y = y), data = abs_parms) +
     labs(x = xlab, y = ylab) +
