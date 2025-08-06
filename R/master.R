@@ -241,111 +241,78 @@ write_csv(MICs, "./output/MICs.csv")
 rm.all.but("globsets")
 
 
-# Step 4: Fitting separate models to all species x temp conditions              ----
-# __________________________________________________________
-#input= growth_parameters_GxE.csv and growth_parameters_h20.csv
-#output= Bayesian relative parameters bayesian_relative_parameters.csv, also in wide format
+# Step 4: Fitting separate models to E. coli and A. baylyi (for GxE analysis) ----
+# ________________________________________________________________________________
+#input= combined_parms_absence_antibiotics.csv
+#output= brms_fit_GxE_models.RData containing four brms fits
 
-GxEParms <- read_csv("./output/growth_parameters_GxE.csv")
-parms <- read_csv("./output/growth_parameters_h20.csv")
-conditions <- read_csv("./data/conditions_key.csv")
+parms_all <- read_csv("./output/combined_parms_absence_antibiotics.csv") |>
+  filter(Species != "Lactiplantibacillus plantarum") |>
+  mutate(Species = fct_relevel(factor(Species), "Escherichia coli")) |>
+  mutate(SetTemperature = fct_relevel(factor(SetTemperature), "37")) |>
+  mutate(rpoB = fct_relevel(factor(rpoB), "WT"))
 
-#combine all replicates in the absence of antibiotics 
-parms_0 <- parms %>% filter(RIFconc == 0 ) %>% 
-  filter(!is.na(Strain))
+# filter out non-overlapping mutations:
+overlap <- intersect(parms_all |> filter(Species == "Escherichia coli") |> pull(rpoB),
+                     parms_all |> filter(Species == "Acinetobacter baylyi") |> pull(rpoB))
+parms_all <- parms_all |>
+  filter(rpoB %in% overlap)
 
-parms_all <- bind_rows(GxEParms, parms_0) %>% select(-c(RIFconc, Replicate))
-write_csv(parms_all,"./output/combined_parms_absence_antibiotics.csv" )
-parms_all <- read_csv("./output/combined_parms_absence_antibiotics.csv")
+species <- levels(parms_all$Species)
 
-ratio_maxOD <- c()
-ratio_mumax <- c()
-fit_maxOD <- c()
-fit_mumax <- c()
-maxOD <- c()
-mumax <- c()
+all_fits <- c()
 
-for (i in 1:nrow(conditions)) {    
-  dat <- parms_all %>% 
-    filter(parms_all$Species== conditions$Species[[i]]) 
-  
-  dat <- dat %>% 
-    filter(dat$SetTemperature == conditions$Temperature[[i]])%>% 
-    mutate(rpoB = fct_relevel(factor(rpoB), "WT")) 
-  
-  Strains <- data.frame(rpoB = unique(dat$rpoB)) 
-  
-  #calculate parameters
-  cat(paste0(">>> Working on ", conditions$Species[i]," in ", conditions$Temperature[i]," degrees C " , "\n"))
-  condition <- conditions$Condition[i]
-  
-  fit_maxOD[[condition]] <- brm(maxOD ~ rpoB, data = dat) 
-  fit_mumax[[condition]] <- brm(mumax ~ rpoB, data = dat)
-  
-  posterior_WT_maxOD <- as_draws_df(fit_maxOD[[condition]])%>% pull(b_Intercept) 
-  posterior_WT_mumax <- as_draws_df(fit_mumax[[condition]])%>% pull(b_Intercept)
-  
-  for(j in 1:nrow(Strains)){
-    if (Strains$rpoB[j] == "WT") {  
-      Strain_name <- paste0("WT")
-      posterior_mut_maxOD <- as_draws_df(fit_maxOD[[condition]]) %>% pull(b_Intercept)
-      posterior_mut_mumax <- as_draws_df(fit_mumax[[condition]]) %>% pull(b_Intercept) 
-      
-      ratio_maxOD[[condition]][[Strain_name]] <- posterior_mut_maxOD / shuffle(posterior_WT_maxOD) 
-      ratio_mumax[[condition]][[Strain_name]] <- posterior_mut_mumax / shuffle(posterior_WT_mumax)
-    } else {
-      Strain_name <- paste0("b_rpoB", Strains$rpoB[j]) 
-      posterior_mut_maxOD <- as_draws_df(fit_maxOD[[condition]]) %>% pull(Strain_name)
-      posterior_mut_mumax <- as_draws_df(fit_mumax[[condition]]) %>% pull(Strain_name) 
-      
-      ratio_maxOD[[condition]][[Strain_name]] <- (posterior_mut_maxOD + posterior_WT_maxOD) / posterior_WT_maxOD 
-      ratio_mumax[[condition]][[Strain_name]] <- (posterior_mut_mumax + posterior_WT_mumax) / posterior_WT_mumax
-    }
-    maxOD[[condition]][[Strain_name]] <- mean_hdi(ratio_maxOD[[condition]][[Strain_name]]) 
-    mumax[[condition]][[Strain_name]] <- mean_hdi(ratio_mumax[[condition]][[Strain_name]])
-  }
+for (i in 1:length(species)) {    
+  dat <- parms_all |>
+    filter(parms_all$Species== species[i]) |>
+    select(SetTemperature, rpoB, mumax, maxOD)
+  all_fits[["mumax"]][[species[i]]] <- brm(mumax ~ rpoB * SetTemperature, data = dat)
+  all_fits[["maxOD"]][[species[i]]] <- brm(maxOD ~ rpoB * SetTemperature, data = dat)
 }
 
-save(fit_maxOD, file = "output/brms_fit_separate_models_maxOD.RData")
-save(fit_mumax, file = "output/brms_fit_separate_models_mumax.RData")
-
-# wrangling fits into data frames:
-t_maxOD <- enframe(maxOD, name = "Condition", value = "relative_maxOD") %>% 
-  unnest_longer(relative_maxOD, indices_to = "rpoB")%>% 
-  unnest(relative_maxOD) %>% 
-  rename_with(~ paste("relative_maxOD", ., sep = "_"), -c(Condition, rpoB))
-
-t_mumax <- enframe(mumax, name = "Condition", value = "relative_mumax") %>% 
-  unnest_longer(relative_mumax, indices_to = "rpoB")%>% 
-  unnest(relative_mumax) %>% 
-  rename_with(~ paste("relative_mumax", ., sep = "_"), -c(Condition, rpoB))
-
-rel_parms <- left_join(t_maxOD, t_mumax, by= c("rpoB", "Condition"))
-rel_parms <- left_join(rel_parms, conditions, by = "Condition") %>% 
-  select(Species, Temperature, Condition, rpoB, 
-         relative_maxOD_y, relative_maxOD_ymin, relative_maxOD_ymax,
-         relative_mumax_y, relative_mumax_ymin, relative_mumax_ymax
-         ) %>% 
-  mutate(rpoB = str_replace(rpoB, "b_rpoB", ""))
-
-write_csv(rel_parms,"./output/bayesian_relative_parameters.csv" )
-
-#wide dataframe for graphing
-wide <- rel_parms %>% select(Condition , rpoB, 
-                             relative_maxOD_y, relative_maxOD_ymin, relative_maxOD_ymax,
-                             relative_mumax_y, relative_mumax_ymin, relative_mumax_ymax
-)
-wide <- pivot_wider(wide,  names_from = Condition, values_from = c(relative_maxOD_y, relative_maxOD_ymin, relative_maxOD_ymax,
-                                                                relative_mumax_y, relative_mumax_ymin, relative_mumax_ymax))
-write_csv(wide,"./output/bayesian_relative_parameters_wide.csv" )
+save(all_fits, file = "output/brms_fit_GxE_models.RData")
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
-# Step 5: Fitting single model to E.coli and A.baylyi data ----
-# __________________________________________________________
-#input=  parameters in the absence of antibiotics
-#output= brms model of epistasis and GxE
+# Step 5: Fitting models to all species pairs (for GxG analysis) ----
+# ___________________________________________________________________
+#input=  combined_parms_absence_antibiotics.csv
+#output= brms_fit_GxG_models.RData, containing six brms fits
+
+parms_all <- read_csv("./output/combined_parms_absence_antibiotics.csv") |>
+  mutate(rpoB = fct_relevel(factor(rpoB), "WT"))
+
+species_pairs <- data.frame(Pair = c("EC_AB", "EC_LP", "AB_LP"),
+                            Species1 = c(rep("Escherichia coli", 2), "Acinetobacter baylyi"),
+                            Species2 = c("Acinetobacter baylyi", rep("Lactiplantibacillus plantarum", 2)),
+                            SetTemperature1 = c("37", "37", "30"),
+                            SetTemperature1 = c("30", "30", "30"))
+
+all_fits <- c()
+
+for (i in 1:nrow(species_pairs)) {
+  # filter out non-overlapping mutations:
+  overlap <- intersect(parms_all |> filter(Species == species_pairs$Species1[i]) |> pull(rpoB),
+                       parms_all |> filter(Species == species_pairs$Species2[i]) |> pull(rpoB))
+  dat <- parms_all |>
+    filter(rpoB %in% overlap) |>
+    filter(Species %in% species_pairs[i, c("Species1", "Species2")]) |>
+    select(Species, rpoB, mumax, maxOD) |>
+    mutate(Species = fct_relevel(factor(Species), species_pairs$Species1[i]))
+  all_fits[["fits"]][["mumax"]][[species_pairs$Pair[i]]] <- brm(mumax ~ rpoB * Species, data = dat)
+  all_fits[["fits"]][["maxOD"]][[species_pairs$Pair[i]]] <- brm(maxOD ~ rpoB * Species, data = dat)
+}
+
+all_fits[["legend"]] <- species_pairs
+
+save(all_fits, file = "output/brms_fit_GxG_models.RData")
+
+
+# Step 6: Fitting single model to E. coli & A. baylyi data (for GxGxE analysis) ----
+# __________________________________________________________________________________
+#input=  combined_parms_absence_antibiotics.csv
+#output= brms_fit_GxGxE_model.RData containing two brms fits
 
 parms_all <-  read_csv("./output/combined_parms_absence_antibiotics.csv" )
 
@@ -368,22 +335,19 @@ GxE_mod <- parms_all %>%
 
 
 # model fit without 3-way interactions:
-maxOD_fit <- brm(maxOD ~ rpoB*Species + 
+maxOD_fit_no3way <- brm(maxOD ~ rpoB*Species + 
              SetTemperature*Species + 
              rpoB*SetTemperature, 
              data = GxE_mod)
-summary(maxOD_fit)
-#plot(maxOD_fit)
+summary(maxOD_fit_no3way)
+#plot(maxOD_fit_no3way)
 
-mumax_fit <- brm(mumax ~ rpoB*Species + 
-                         SetTemperature*Species + 
-                         rpoB*SetTemperature, 
-                 data = GxE_mod)
-summary(mumax_fit)
-#plot(mumax_fit)
-
-save(mumax_fit, file = "output/brms_fit_single_model_mumax.RData")
-save(maxOD_fit, file = "output/brms_fit_single_model_maxOD.RData")
+mumax_fit_no3way <- brm(mumax ~ rpoB*Species + 
+                                  SetTemperature*Species + 
+                                  rpoB*SetTemperature, 
+                        data = GxE_mod)
+summary(mumax_fit_no3way)
+#plot(mumax_fit_no3way)
 
 # model fit with 3-way interactions:
 maxOD_fit <- brm(maxOD ~ rpoB*Species*SetTemperature, 
@@ -396,33 +360,32 @@ mumax_fit <- brm(mumax ~ rpoB*Species*SetTemperature,
 summary(mumax_fit)
 #plot(mumax_fit)
 
-save(mumax_fit, file = "output/brms_fit_single_model_mumax_3way.RData")
-save(maxOD_fit, file = "output/brms_fit_single_model_maxOD_3way.RData")
-
-
 # comparing the simpler vs. the 3-way model:
 
-load("output/brms_fit_single_model_mumax.RData")
-mumax_fit_simple <- mumax_fit
-load("output/brms_fit_single_model_mumax_3way.RData")
-mumax_fit_3way <- mumax_fit
-rm(mumax_fit)
+pp_check(mumax_fit_no3way)
+pp_check(mumax_fit)
 
-pp_check(mumax_fit_simple)
-pp_check(mumax_fit_3way)
+bridge_no3way <- bridge_sampler(mumax_fit_no3way)
+bridge <- bridge_sampler(mumax_fit)
+bayes_factor(bridge, bridge_no3way)
 
-bridge_simple <- bridge_sampler(mumax_fit_simple)
-bridge_3way <- bridge_sampler(mumax_fit_3way)
-bayes_factor(bridge_3way, bridge_simple)
+loo_no3way <- loo(mumax_fit_no3way, moment_match = TRUE)
+loo <- loo(mumax_fit, moment_match = TRUE)
+loo_compare(loo_no3way, loo)
 
-loo_simple <- loo(mumax_fit_simple, moment_match = TRUE)
-loo_3way <- loo(mumax_fit_3way, moment_match = TRUE)
-loo_compare(loo_simple, loo_3way)
+# saving fits
+all_fits <- list(mumax = mumax_fit_no3way,
+                 maxOD = maxOD_fit_no3way)
+save(all_fits, file = "output/brms_fit_GxGxE_model_no3way.RData")
+
+all_fits <- list(mumax = mumax_fit,
+                 maxOD = maxOD_fit)
+save(all_fits, file = "output/brms_fit_GxGxE_model.RData")
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
-# Fig 0: Info plot explaining following figures ----
+# Fig 1: Info plot explaining following figures ----
 # __________________________________________________________
 #input=  Bayesian relative parameters
 #output= GxE graphs 
@@ -473,307 +436,150 @@ p <- plot_epistasis_bg(W1, W2, 0, 1.2, 0, 1.2) +
 
 ggsave("plots/Fig1_explainer.png", plot = p, height = 5, width = 4.8)
 
-# Fig 1: GxE scatterplots ----
+# Fig 2: GxE scatterplots ----
 # __________________________________________________________
 #input=  Bayesian relative parameters
 #output= GxE graphs 
 
-# preparing data:
 set.seed(globsets$random_seed)
-# rel_parms <- read_csv("./output/bayesian_relative_parameters.csv" ) |>
-#   select(-Condition) |>
-#   pivot_wider(names_from = Temperature, 
-#               values_from = c(relative_maxOD_y, relative_maxOD_ymin, relative_maxOD_ymax,
-#                               relative_mumax_y, relative_mumax_ymin, relative_mumax_ymax))
 
-# mumax plots:
-load(file = "output/brms_fit_separate_models_mumax.RData")
-xlab <- expression(mu[max] * "(30"* degree *"C)")
-ylab <- expression(mu[max] *"(37"* degree *"C)")
-# p_data <- rel_parms |>
-#   mutate(x = relative_mumax_y_30, xmin = relative_mumax_ymin_30, xmax = relative_mumax_ymax_30,
-#          y = relative_mumax_y_37, ymin = relative_mumax_ymin_37, ymax = relative_mumax_ymax_37)
-# 
-# p_mumax_EC <- plot_epistasis_relpars(p_data |> filter(Species == "Escherichia coli"), 
-#                                      fit_mumax[["EC30"]], fit_mumax[["EC37"]],
-#                                      0.72, 1.08, 0.75, 1.1, xlab, ylab, leglab = "GxE")
-# p_mumax_AB <- plot_epistasis_relpars(p_data |> filter(Species == "Acinetobacter baylyi"), 
-#                                      fit_mumax[["AB30"]], fit_mumax[["AB37"]],
-#                                      0.65, 1.08, -0.03, 1.1, xlab, ylab, leglab = "GxE")
+load("output/brms_fit_GxE_models.RData")
+variables <- names(all_fits)
+species <- names(all_fits[["mumax"]])
+p <- c()
 
-p_mumax_EC <- plot_epistasis_abspars(get_post_predictions(fit_mumax[["EC30"]]), 
-                                     get_post_predictions(fit_mumax[["EC37"]]),
-                                     0.0132, 0.0192, 0.0212, 0.0305, xlab, ylab, leglab = "GxE")
-p_mumax_AB <- plot_epistasis_abspars(get_post_predictions(fit_mumax[["AB30"]]), 
-                                     get_post_predictions(fit_mumax[["AB37"]]),
-                                     0.0113, 0.0185, -0.001, 0.021, xlab, ylab, leglab = "GxE")
+for(i in 1:length(variables)) {
+  if (variables[i] == "mumax") {
+    xlab <- expression(mu[max] * "(30"* degree *"C)")
+    ylab <- expression(mu[max] *"(37"* degree *"C)")
+  } else if (variables[i] == "maxOD") {
+    xlab <- expression("maxOD (30"* degree *"C)")
+    ylab <- expression("maxOD (37"* degree *"C)")
+  }
+  for(j in 1:length(species)) {
+    fit <- all_fits[[variables[i]]][[species[j]]]
+    newdata <- expand_grid(SetTemperature = levels(fit$data$SetTemperature),
+                           rpoB = levels(fit$data$rpoB))
+    post_preds <- fit |>
+      epred_draws(newdata = newdata) |>
+      group_by(across(all_of(colnames(newdata)))) |>
+      mean_hdi(.epred, .width = 0.95)
+    
+    post_pred_1 <- post_preds |>
+      filter(SetTemperature == "30") |>
+      select(rpoB, .epred, .lower, .upper) |>
+      rename(mean = .epred, hdi_lower = .lower, hdi_upper = .upper)
+    
+    post_pred_2 <- post_preds |>
+      filter(SetTemperature == "37") |>
+      select(rpoB, .epred, .lower, .upper) |>
+      rename(mean = .epred, hdi_lower = .lower, hdi_upper = .upper)
+    
+    p[[variables[i]]][[species[j]]] <- plot_epistasis_abspars(post_pred_1, 
+                                                              post_pred_2,
+                                                              xlab, ylab, leglab = "GxE")
+  }
+}
 
-# maxOD plots:
-load(file = "output/brms_fit_separate_models_maxOD.RData")
-xlab <- expression("maxOD (30"* degree *"C)")
-ylab <- expression("maxOD (37"* degree *"C)")
-# p_data <- rel_parms |>
-#   mutate(x = relative_maxOD_y_30, xmin = relative_maxOD_ymin_30, xmax = relative_maxOD_ymax_30,
-#          y = relative_maxOD_y_37, ymin = relative_maxOD_ymin_37, ymax = relative_maxOD_ymax_37)
-# 
-# p_maxOD_EC <- plot_epistasis_relpars(p_data |> filter(Species == "Escherichia coli"), 
-#                                      fit_maxOD[["EC30"]], fit_maxOD[["EC37"]],
-#                                      0.7, 1.4, 0.76, 1.04, xlab, ylab, leglab = "GxE")
-# p_maxOD_AB <- plot_epistasis_relpars(p_data |> filter(Species == "Acinetobacter baylyi"), 
-#                                      fit_maxOD[["AB30"]], fit_maxOD[["AB37"]],
-#                                      0.8, 1.36, -0.08, 1.4, xlab, ylab, leglab = "GxE")
-
-p_maxOD_EC <- plot_epistasis_abspars(get_post_predictions(fit_maxOD[["EC30"]]), 
-                                     get_post_predictions(fit_maxOD[["EC37"]]),
-                                     0.63, 1.17, 0.81, 1.1, xlab, ylab, leglab = "GxE")
-p_maxOD_AB <- plot_epistasis_abspars(get_post_predictions(fit_maxOD[["AB30"]]), 
-                                     get_post_predictions(fit_maxOD[["AB37"]]),
-                                     0.49, 0.8, -0.03, 0.52, xlab, ylab, leglab = "GxE")
-
-Fig1 <- (p_mumax_EC + p_mumax_AB)/(p_maxOD_EC + p_maxOD_AB)
+Fig1 <- (p[["mumax"]][["Escherichia coli"]] + p[["mumax"]][["Acinetobacter baylyi"]])/
+  (p[["maxOD"]][["Escherichia coli"]] + p[["maxOD"]][["Acinetobacter baylyi"]])
 Fig1 <- Fig1 + plot_layout(guides = "collect") + 
   plot_annotation(tag_levels = 'A')& 
   theme(plot.tag = element_text(size = 14),
         legend.position = "bottom")
 
-ggsave(Fig1, filename = "./plots/Fig1_GxE.png",  width = 10, height = 10)
+ggsave(Fig1, filename = "./plots/Fig2_GxE_speciesfits.png",  width = 10, height = 10)
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
-# Old Fig 2: log transformed GxE                     ---
-# __________________________________________________________
-#input= Bayesian relative parameters 
-#output= plot of log-transformed relative GxE effects
-# 
-# wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
-# 
-# transformed <- wide %>% mutate(Ec_mumax_transformed = 
-#                                log2(relative_mumax_y_EC37/relative_mumax_y_EC30)) %>% 
-#                         mutate(Ec_mumax_min_transformed = 
-#                                  log2(relative_mumax_ymin_EC37/relative_mumax_ymin_EC30)) %>% 
-#                         mutate(Ec_mumax_max_transformed = 
-#                                  log2(relative_mumax_ymax_EC37/relative_mumax_ymax_EC30)) %>%
-#                         mutate(Ec_maxOD_transformed = 
-#                                log2(relative_maxOD_y_EC37/relative_maxOD_y_EC30)) %>%
-#                         mutate(Ec_maxOD_min_transformed = 
-#                                  log2(relative_maxOD_ymin_EC37/relative_maxOD_ymin_EC30)) %>% 
-#                         mutate(Ec_maxOD_max_transformed = 
-#                                  log2(relative_maxOD_ymax_EC37/relative_maxOD_ymax_EC30)) %>%
-#                         mutate(Ab_mumax_transformed = 
-#                               log2(relative_mumax_y_AB37/relative_mumax_y_AB30)) %>% 
-#                         mutate(Ab_mumax_min_transformed = 
-#                                  log2(relative_mumax_ymin_AB37/relative_mumax_ymin_AB30)) %>% 
-#                         mutate(Ab_mumax_max_transformed = 
-#                                  log2(relative_mumax_ymax_AB37/relative_mumax_ymax_AB30)) %>%
-#                         mutate(Ab_maxOD_transformed = 
-#                                log2(relative_maxOD_y_AB37/relative_maxOD_y_AB30)) %>% 
-#                         mutate(Ab_maxOD_min_transformed = 
-#                                  log2(relative_maxOD_ymin_AB37/relative_maxOD_ymin_AB30)) %>% 
-#                          mutate(Ab_maxOD_max_transformed = 
-#                                   log2(relative_maxOD_ymax_AB37/relative_maxOD_ymax_AB30)) 
-# 
-# 
-# ####get WT relative parameters?
-# mu_wt <- log2(1/1)
-# od_wt <- log2(1/1)
-# 
-# 
-# set.seed(23) #for geom_repel
-# 
-# transformed_Ec_graph <- ggplot(transformed, aes(Ec_mumax_transformed, Ec_maxOD_transformed)) +
-#   geom_point()+
-#   theme_classic()+
-#   labs(title = expression(italic("E. coli")), 
-#        x = expression("log"[2]* "(" *mu[max] * "37/30)") ,
-#        y = expression("log"[2]* "(maxOD 37/30)") )+
-#  geom_vline(xintercept = mu_wt, linetype = "dotted", color = "blue") +
-#  geom_hline(yintercept = od_wt, linetype = "dotted", color = "blue") +
-#   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
-#   
-#   geom_label_repel(aes(label = rpoB), 
-#                    size = 4,
-#                    fill = alpha("white", 0.3), 
-#                    label.size = NA,
-#                    segment.color = NA) +
-#   geom_errorbarh(aes(xmin= Ec_mumax_min_transformed,
-#                      xmax= Ec_mumax_max_transformed),
-#                  alpha = 0.3
-#   )+
-#   geom_errorbar(aes(ymin= Ec_maxOD_min_transformed,
-#                     ymax= Ec_maxOD_max_transformed),
-#                 alpha = 0.3
-#   )+
-#   theme(
-#     plot.title = element_text(size = 15),
-#     axis.text.x = element_text(size = 10),
-#     axis.text.y = element_text(size = 10), 
-#     axis.title.x = element_text(size = 12),
-#     axis.title.y = element_text(size = 12)
-#   )
-#  
-# 
-# transformed_Ab_graph <- ggplot(transformed, aes(Ab_mumax_transformed, Ab_maxOD_transformed)) +
-#   geom_point()+
-#   theme_classic()+
-#   labs(title = expression(italic("A. baylyi")), 
-#        x = expression("log"[2]* "(" *mu[max] * "37/30)") ,
-#        y = expression("log"[2]* "(maxOD 37/30)") )+
-#   geom_vline(xintercept = mu_wt, linetype = "dotted", color = "blue") +
-#   geom_hline(yintercept = od_wt, linetype = "dotted", color = "blue") +
-#   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red")+
-#   
-#   geom_label_repel(aes(label = rpoB), 
-#                    size = 4,
-#                    fill = alpha("white", 0.3), 
-#                    label.size = NA,
-#                    segment.color = NA) +
-#   geom_errorbarh(aes(xmin= Ab_mumax_min_transformed,
-#                      xmax= Ab_mumax_max_transformed),
-#                  alpha = 0.3
-#   )+
-#   geom_errorbar(aes(ymin= Ab_maxOD_min_transformed,
-#                     ymax= Ab_maxOD_max_transformed),
-#                 alpha = 0.3
-#   )+
-#   theme(
-#     plot.title = element_text(size = 15),
-#     axis.text.x = element_text(size = 10),
-#     axis.text.y = element_text(size = 10), 
-#     axis.title.x = element_text(size = 12),
-#     axis.title.y = element_text(size = 12)
-#   )
-# 
-# 
-# Fig2 <- transformed_Ec_graph + transformed_Ab_graph + plot_annotation(tag_levels = 'A')& 
-#   theme(plot.tag = element_text(size = 14))
-# 
-# ggsave(Fig2, filename = "./plots/Fig2_transformed_GxE.pdf",  width = 10, height = 5)
-# 
-# #empty working environment to keep everything clean:
-# rm.all.but("globsets")
 
-# Fig 2: epistasis scatterplots               ----
+# Fig 3: Epistasis scatterplots               ----
 # __________________________________________________________
 #input=  Bayesian relative parameters
 #output= 
 
-#wide <- read_csv("./output/bayesian_relative_parameters_wide.csv" )
-set.seed(globsets$random_seed) #for geom_repel
+set.seed(globsets$random_seed)
 
-# mumax plots:
+load("output/brms_fit_GxG_models.RData")
+variables <- names(all_fits$fits)
+pairs <- names(all_fits$fits[["mumax"]])
+species_pairs <- all_fits$legend
+p <- c()
 
-load(file = "output/brms_fit_separate_models_mumax.RData")
+for(i in 1:length(variables)) {
+  for(j in 1:length(all_fits$fits[[i]])) {
+    if (variables[i] == "mumax") {
+      xlab <- expression(mu[max] * eval(paste0("(", species_pairs$Species1[j], ")")))
+      ylab <- expression(mu[max] * eval(paste0("(", species_pairs$Species2[j], ")")))
+    } else if (variables[i] == "maxOD") {
+      xlab <- paste0("maxOD (", species_pairs$Species1[j], ")")
+      ylab <- paste0("maxOD (", species_pairs$Species2[j], ")")
+    }
+    
+    fit <- all_fits$fits[[variables[i]]][[species_pairs$Pair[j]]]
+    newdata <- expand_grid(Species = levels(fit$data$Species),
+                           rpoB = levels(fit$data$rpoB))
+    post_preds <- fit |>
+      epred_draws(newdata = newdata) |>
+      group_by(across(all_of(colnames(newdata)))) |>
+      mean_hdi(.epred, .width = 0.95)
+    
+    post_pred_1 <- post_preds |>
+      filter(Species == species_pairs$Species1[j]) |>
+      select(rpoB, .epred, .lower, .upper) |>
+      rename(mean = .epred, hdi_lower = .lower, hdi_upper = .upper)
+    
+    post_pred_2 <- post_preds |>
+      filter(Species == species_pairs$Species2[j]) |>
+      select(rpoB, .epred, .lower, .upper) |>
+      rename(mean = .epred, hdi_lower = .lower, hdi_upper = .upper)
+    
+    p[[variables[i]]][[species_pairs$Pair[j]]] <- plot_epistasis_abspars(post_pred_1, 
+                                                                         post_pred_2,
+                                                                         xlab, ylab, leglab = "Epistasis")
+  }
+}
 
-xlab <- expression(mu* "max " *italic("(E. coli)"))
-ylab <- expression(mu* "max " * italic( "(A. baylyi)"))
-# p_data <- wide |>
-#   mutate(x = relative_mumax_y_EC37, xmin = relative_mumax_ymin_EC37, xmax = relative_mumax_ymax_EC37,
-#          y = relative_mumax_y_AB30, ymin = relative_mumax_ymin_AB30, ymax = relative_mumax_ymax_AB30)
-# p_ECAB_mumax <- plot_epistasis_relpars(p_data, fit_mumax[["EC37"]], fit_mumax[["AB30"]],
-#                                        0.425, 1.11, 0.5, 1.6, xlab, ylab)
-
-p_ECAB_mumax <- plot_epistasis_abspars(fit_mumax[["EC37"]], fit_mumax[["AB30"]],
-                                       0.021, 0.0307, 0.0113, 0.0185, xlab, ylab)
-
-xlab <- expression(mu* "max " *italic("(E. coli)"))
-ylab <- expression(mu* "max " * italic( "(L. plantarum)"))
-# p_data <- wide |>
-#   mutate(x = relative_mumax_y_EC37, xmin = relative_mumax_ymin_EC37, xmax = relative_mumax_ymax_EC37,
-#          y = relative_mumax_y_LP30, ymin = relative_mumax_ymin_LP30, ymax = relative_mumax_ymax_LP30)
-# p_ECLP_mumax <- plot_epistasis_relpars(p_data, fit_mumax[["EC37"]], fit_mumax[["LP30"]],
-#                                        0.425, 1.11, 0.5, 1.6, xlab, ylab)
-p_ECLP_mumax <- plot_epistasis_abspars(fit_mumax[["EC37"]], fit_mumax[["LP30"]],
-                                       0.0123, 0.0305, 0.0037, 0.011, xlab, ylab)
-
-
-xlab <- expression(mu* "max " *italic("(A. baylyi)"))
-ylab <- expression(mu* "max " * italic( "(L. plantarum)"))
-# p_data <- wide |>
-#   mutate(x = relative_mumax_y_AB30, xmin = relative_mumax_ymin_AB30, xmax = relative_mumax_ymax_AB30,
-#          y = relative_mumax_y_LP30, ymin = relative_mumax_ymin_LP30, ymax = relative_mumax_ymax_LP30)
-# p_ABLP_mumax <- plot_epistasis_relpars(p_data, fit_mumax[["AB30"]], fit_mumax[["LP30"]],
-#                                        0.425, 1.1, 0.5, 1.6, xlab, ylab)
-p_ABLP_mumax <- plot_epistasis_abspars(fit_mumax[["AB30"]], fit_mumax[["LP30"]],
-                                       0.0121, 0.0179, 0.0049, 0.0077, xlab, ylab)
-
-
-# maxOD plots:
-
-load(file = "output/brms_fit_separate_models_maxOD.RData")
-
-xlab <- expression("maxOD (" * italic( "E. coli") * ")")
-ylab <- expression("maxOD (" * italic( "A. baylyi") * ")")
-# p_data <- wide |>
-#   mutate(x = relative_maxOD_y_EC37, xmin = relative_maxOD_ymin_EC37, xmax = relative_maxOD_ymax_EC37,
-#          y = relative_maxOD_y_AB30, ymin = relative_maxOD_ymin_AB30, ymax = relative_maxOD_ymax_AB30)
-# p_ECAB_maxOD <- plot_epistasis_relpars(p_data, fit_maxOD[["EC37"]], fit_maxOD[["AB30"]],
-#                                        0.75, 1.26, 0.8, 1.36, xlab, ylab)
-p_ECAB_maxOD <- plot_epistasis_abspars(fit_maxOD[["EC37"]], fit_maxOD[["AB30"]],
-                                       0.81, 1.1, 0.48, 0.8, xlab, ylab)
-
-
-xlab <- expression("maxOD (" * italic( "E. coli") * ")")
-ylab <- expression("maxOD (" * italic( "L. plantarum") * ")")
-# p_data <- wide |>
-#   mutate(x = relative_maxOD_y_EC37, xmin = relative_maxOD_ymin_EC37, xmax = relative_maxOD_ymax_EC37,
-#          y = relative_maxOD_y_LP30, ymin = relative_maxOD_ymin_LP30, ymax = relative_maxOD_ymax_LP30)
-# p_ECLP_maxOD <- plot_epistasis_relpars(p_data, fit_maxOD[["EC37"]], fit_maxOD[["LP30"]],
-#                                        0.8, 1.26, 0.8, 1.36, xlab, ylab)
-p_ECLP_maxOD <- plot_epistasis_abspars(fit_maxOD[["EC37"]], fit_maxOD[["LP30"]],
-                                       0.94, 1.08, 0.52, 0.77, xlab, ylab)
-
-xlab <- expression("maxOD (" * italic( "A. baylyi") * ")")
-ylab <- expression("maxOD (" * italic( "L. plantarum") * ")")
-# p_data <- wide |>
-#   mutate(x = relative_maxOD_y_AB30, xmin = relative_maxOD_ymin_AB30, xmax = relative_maxOD_ymax_AB30,
-#          y = relative_maxOD_y_LP30, ymin = relative_maxOD_ymin_LP30, ymax = relative_maxOD_ymax_LP30)
-# p_ABLP_maxOD <- plot_epistasis_relpars(p_data, fit_maxOD[["EC37"]], fit_maxOD[["LP30"]],
-#                                        0.8, 1.26, 0.8, 1.36, xlab, ylab)
-p_ABLP_maxOD <- plot_epistasis_abspars(fit_maxOD[["AB30"]], fit_maxOD[["LP30"]],
-                                       0.49, 0.75, 0.52, 0.66, xlab, ylab)
-
-
-Fig3 <- (p_ECAB_mumax + p_ECLP_mumax + p_ABLP_mumax) / (p_ECAB_maxOD + p_ECLP_maxOD + p_ABLP_maxOD)
+Fig3 <- (p[["mumax"]][["EC_AB"]] + p[["mumax"]][["EC_LP"]] + p[["mumax"]][["AB_LP"]])/
+  (p[["maxOD"]][["EC_AB"]] + p[["maxOD"]][["EC_LP"]] + p[["maxOD"]][["AB_LP"]])
 Fig3 <- Fig3 + plot_layout(guides = "collect") + 
   plot_annotation(tag_levels = 'A')& 
   theme(plot.tag = element_text(size = 14),
         legend.position = "bottom")
 
-ggsave(Fig3, filename = "./plots/Fig2_epistasis.png",  width = 15, height = 10)
+ggsave(Fig3, filename = "./plots/Fig3_GxG_speciespairfits.png",  width = 15, height = 10)
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
-# Fig 3: posterior distributions for single fit ----
+# Fig 4: posterior distributions for single fit ----
 # __________________________________________________________
 #input=  Bayesian relative parameters
 #output= GxE graphs 
 
 # fits without 3-way interactions:
-load("output/brms_fit_single_model_mumax.RData")
-load("output/brms_fit_single_model_maxOD.RData")
+load("output/brms_fit_GxGxE_model_no3way.RData")
 
-p_mumax <- plot_posteriors(mumax_fit)
-p_maxOD <- plot_posteriors(maxOD_fit)
+p_mumax <- plot_posteriors(all_fits$mumax)
+p_maxOD <- plot_posteriors(all_fits$maxOD)
 
 p <- (p_mumax | p_maxOD) + 
   plot_annotation(tag_levels = 'A')
 
-ggsave("plots/posterior_distributions_species_T_mut.pdf", p, width = 12, height = 8)
+ggsave("plots/GxGxE_no3way.pdf", p, width = 12, height = 8)
 
 
 # fits with 3-way interactions:
-load("output/brms_fit_single_model_mumax_3way.RData")
-load("output/brms_fit_single_model_maxOD_3way.RData")
+load("output/brms_fit_GxGxE_model.RData")
 
-p_mumax <- plot_posteriors(mumax_fit)
-p_maxOD <- plot_posteriors(maxOD_fit)
+p_mumax <- plot_posteriors(all_fits$mumax)
+p_maxOD <- plot_posteriors(all_fits$maxOD)
 
 p <- (p_mumax | p_maxOD) + 
   plot_annotation(tag_levels = 'A')
 
-ggsave("plots/Fig3_posteriors_full_model.pdf", p, width = 10, height = 8)
+ggsave("plots/Fig4_GxGxE.pdf", p, width = 10, height = 8)
 
 
 # SupFig 1: fitness boxplots                            ----
