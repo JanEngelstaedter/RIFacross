@@ -72,7 +72,7 @@ zeroE_AB <- function(ab, aB, Ab) {
 }
 
 
-# helper function written by chatGPT to add empty rows to a data frame so
+# helper function (written by chatGPT) to add empty rows to a data frame so
 # as to always plot all factor levels with the correct colour:
 add_dummy_levels <- function(df, var, all_levels) {
   missing_levels <- setdiff(all_levels, unique(df[[var]]))

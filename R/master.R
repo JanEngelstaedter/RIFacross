@@ -3,14 +3,9 @@
 
 library(tidyverse)
 library(grow96)
-#library(Biostrings)
-#library(ALJEbinf)
-#library(googlesheets4)
-#library(UpSetR)
 library(varhandle)
-#library(ggpubr)
 library(brms)
-options(brms.backend = "cmdstanr")
+#options(brms.backend = "cmdstanr")
 library(broom)
 library(tidybayes)
 library(ggrepel)
@@ -27,7 +22,7 @@ source("./R/util.R")
 globsets <- list(
   h = 20, # parameter for easylinear
   random_seed = 22,
-  cred_int = 0.9)
+  cred_int = 0.95)
 
 # Step 1: Loading and processing MIC assay data         ----
 # __________________________________________________________
@@ -404,10 +399,13 @@ p <- plot_epistasis_bg(W1, W2, 0, 1.2, 0, 1.2) +
 
 ggsave("plots/Fig1_explainer.png", plot = p, height = 5, width = 4.8)
 
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
+
 # Fig 2: GxE scatterplots ----
 # __________________________________________________________
-#input=  Bayesian relative parameters
-#output= GxE graphs 
+#input=  Bayesian model fits
+#output= GxE figure
 
 set.seed(globsets$random_seed)
 
@@ -431,7 +429,7 @@ for(i in 1:length(variables)) {
     post_preds <- fit |>
       epred_draws(newdata = newdata) |>
       group_by(across(all_of(colnames(newdata)))) |>
-      mean_hdi(.epred, .width = 0.95)
+      mean_hdi(.epred, .width = globsets$cred_int)
     
     post_pred_1 <- post_preds |>
       filter(SetTemperature == "30") |>
@@ -554,6 +552,8 @@ p <- (p_mumax | p_maxOD) +
 
 ggsave("plots/Fig4_GxGxE.pdf", p, width = 10, height = 8)
 
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
 
 # SupFig 1: fitness boxplots for all species and temperatures ----
 # ________________________________________________________________
@@ -636,17 +636,38 @@ SupFig1 <- p_mumax[["Escherichia coli"]] + p_mumax[["Acinetobacter baylyi"]] + p
 
 ggsave(SupFig1, filename = "./plots/SupFig1_boxplots_alt.pdf", width=15 , height= 8)
 
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
+
 # Tables for model fits                                 ----
 # __________________________________________________________
 
-load("output/brms_fit_separate_models_maxOD.RData")
-load("output/brms_fit_separate_models_mumax.RData")
-
-models <- names(fit_maxOD)
-for(i in 1:length(models)) {
-  brms::posterior_summary(fit_maxOD[[i]], probs = c(0.025, 0.975), central = FALSE) |>
+# GxE models:
+load("output/brms_fit_GxE_models.RData")
+vars <- names(all_fits)
+for(v in vars) {
+  models <- names(all_fits[[v]])
+  for(m in models) {
+  brms::posterior_summary(all_fits[[v]][[m]], 
+                          probs = c((1 - globsets$cred_int)/2, 0.5 + globsets$cred_int/2), 
+                          central = FALSE) |>
     xtable() |>
-    print(file = paste0("tables/posterior_summary_maxOD_", models[i], ".tex"))
+    print(file = paste0("tables/posterior_summary_GxE_", v, "_", m, ".tex"))
+  }
+}
+
+# GxG models:
+load("output/brms_fit_GxG_models.RData")
+vars <- names(all_fits$fits)
+for(v in vars) {
+  models <- names(all_fits$fits[[v]])
+  for(m in models) {
+    brms::posterior_summary(all_fits$fits[[v]][[m]], 
+                            probs = c((1 - globsets$cred_int)/2, 0.5 + globsets$cred_int/2), 
+                            central = FALSE) |>
+      xtable() |>
+      print(file = paste0("tables/posterior_summary_GxG_", v, "_", m, ".tex"))
+  }
 }
 
 load("output/brms_fit_single_model_mumax.RData")
