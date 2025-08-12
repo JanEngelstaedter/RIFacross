@@ -27,7 +27,7 @@ source("./R/util.R")
 globsets <- list(
   h = 20, # parameter for easylinear
   random_seed = 22,
-  cred_int = 0.95)
+  cred_int = 0.9)
 
 # Step 1: Loading and processing MIC assay data         ----
 # __________________________________________________________
@@ -209,39 +209,7 @@ write_csv(GxEParms, "./output/growth_parameters_GxE.csv")
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
-# Step 3: Calculating MICs                              ----
-# __________________________________________________________
-#input= MIC assay parameters (growth_parameters_h20.csv)
-#output= MICs.csv
-
-parms <- read_csv("./output/growth_parameters_h20.csv")
-
-MICs <- parms |>
-  group_by(across(Species:AA_mut_name_Ecoli)) |>
-  summarise(MIC = getMIC(RIFconc, maxOD))
-
-MICs <- MICs %>%
-  mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", "")) 
-MICs$rpoB[MICs$Strain =="WT"] <- "WT"
-MICs$rpoB[MICs$Nt_mut_name =="rpoB_dup1611"] <- "dup1611"
-
-MICs <- MICs %>%
-  mutate(MIC = ifelse(
-    MIC == Inf & (Species == "Acinetobacter baylyi" | Species == "Escherichia coli"), 4096,
-    ifelse(MIC == Inf & Species == "Lactiplantibacillus plantarum", 512, MIC)
-  ))
-
-WT <- MICs %>% filter (Strain=="WT")
-WT_MIC <- setNames(WT$MIC,WT$Species)
-MICs <- MICs %>% mutate(xfold=MIC/WT_MIC[Species])
-
-write_csv(MICs, "./output/MICs.csv")
-
-#empty working environment to keep everything clean:
-rm.all.but("globsets")
-
-
-# Step 4: Fitting separate models to E. coli and A. baylyi (for GxE analysis) ----
+# Step 3: Fitting separate models to E. coli and A. baylyi (for GxE analysis) ----
 # ________________________________________________________________________________
 #input= combined_parms_absence_antibiotics.csv
 #output= brms_fit_GxE_models.RData containing four brms fits
@@ -275,7 +243,7 @@ save(all_fits, file = "output/brms_fit_GxE_models.RData")
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
-# Step 5: Fitting models to all species pairs (for GxG analysis) ----
+# Step 4: Fitting models to all species pairs (for GxG analysis) ----
 # ___________________________________________________________________
 #input=  combined_parms_absence_antibiotics.csv
 #output= brms_fit_GxG_models.RData, containing six brms fits
@@ -309,7 +277,7 @@ all_fits[["legend"]] <- species_pairs
 save(all_fits, file = "output/brms_fit_GxG_models.RData")
 
 
-# Step 6: Fitting single model to E. coli & A. baylyi data (for GxGxE analysis) ----
+# Step 5: Fitting single model to E. coli & A. baylyi data (for GxGxE analysis) ----
 # __________________________________________________________________________________
 #input=  combined_parms_absence_antibiotics.csv
 #output= brms_fit_GxGxE_model.RData containing two brms fits
@@ -507,14 +475,18 @@ pairs <- names(all_fits$fits[["mumax"]])
 species_pairs <- all_fits$legend
 p <- c()
 
+species_abbr <- c("Escherichia coli" = "E. coli",
+                  "Acinetobacter baylyi" = "A. baylyi",
+                  "Lactiplantibacillus plantarum" = "L. plantarum")
+
 for(i in 1:length(variables)) {
   for(j in 1:length(all_fits$fits[[i]])) {
     if (variables[i] == "mumax") {
-      xlab <- expression(mu[max] * eval(paste0("(", species_pairs$Species1[j], ")")))
-      ylab <- expression(mu[max] * eval(paste0("(", species_pairs$Species2[j], ")")))
+      xlab <- bquote(mu[max] * "(" * italic(.(species_abbr[species_pairs$Species1[j]])) * ")")
+      ylab <- bquote(mu[max] * "(" * italic(.(species_abbr[species_pairs$Species2[j]])) * ")")
     } else if (variables[i] == "maxOD") {
-      xlab <- paste0("maxOD (", species_pairs$Species1[j], ")")
-      ylab <- paste0("maxOD (", species_pairs$Species2[j], ")")
+      xlab <- bquote("maxOD(" * italic(.(species_abbr[species_pairs$Species1[j]])) * ")")
+      ylab <- bquote("maxOD(" * italic(.(species_abbr[species_pairs$Species2[j]])) * ")")
     }
     
     fit <- all_fits$fits[[variables[i]]][[species_pairs$Pair[j]]]
@@ -523,7 +495,7 @@ for(i in 1:length(variables)) {
     post_preds <- fit |>
       epred_draws(newdata = newdata) |>
       group_by(across(all_of(colnames(newdata)))) |>
-      mean_hdi(.epred, .width = 0.95)
+      mean_hdi(.epred, .width = globsets$cred_int)
     
     post_pred_1 <- post_preds |>
       filter(Species == species_pairs$Species1[j]) |>
@@ -537,7 +509,8 @@ for(i in 1:length(variables)) {
     
     p[[variables[i]]][[species_pairs$Pair[j]]] <- plot_epistasis_abspars(post_pred_1, 
                                                                          post_pred_2,
-                                                                         xlab, ylab, leglab = "Epistasis")
+                                                                         xlab, ylab,
+                                                                         leglab = "Epistasis")
   }
 }
 
@@ -582,240 +555,86 @@ p <- (p_mumax | p_maxOD) +
 ggsave("plots/Fig4_GxGxE.pdf", p, width = 10, height = 8)
 
 
-# SupFig 1: fitness boxplots                            ----
-# __________________________________________________________
+# SupFig 1: fitness boxplots for all species and temperatures ----
+# ________________________________________________________________
 #input=  growth_parameters_h20.csv, parameters from MIC assay
 #output= boxplots of species and mutants' fitness
 
-parms_all <- read_csv("./output/combined_parms_absence_antibiotics.csv" )
+set.seed(globsets$random_seed)
 
-parms <- read_csv("./output/growth_parameters_h20.csv")
-parms <- parms %>% filter(!is.na(rpoB))
-MICs <- read_csv("./output/MICs.csv")
-MICs <- MICs %>% filter(!is.na(rpoB))
+parms <- read_csv("./output/growth_parameters_h20.csv") |>
+  filter(RIFconc < 1e-9) |>
+  bind_rows(read_csv("./output/combined_parms_absence_antibiotics.csv" )) |>
+  filter(!is.na(rpoB)) |>
+  mutate(SetTemperature = fct_relevel(factor(SetTemperature), "30")) |>
+  mutate(rpoB = fct_reorder(factor(rpoB), AA_pos, .na_rm = FALSE)) |>
+  mutate(rpoB = fct_relevel(rpoB, "WT")) |>
+  select(Species, SetTemperature, rpoB, mumax, maxOD)
 
-#mumax
-abmu <- parms %>% 
-  filter(RIFconc==0) %>%
-  filter(Species =="Acinetobacter baylyi") %>% 
-  ggplot(aes(x=rpoB, y=mumax))+
-  geom_boxplot(aes(alpha=0.5))+
-  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
-  theme_classic()+ 
-    labs(title = expression(italic("A. baylyi")), y= "" , x= "")+
+cols <- c("30" = "#3B9AB2", "37" = "black")
+
+p_mumax <- c()
+
+for(species in unique(parms$Species)[c(2, 1, 3)]) {
+  p_mumax[[species]] <- parms |>
+    filter(Species == species) |>
+    mutate(rpoB = droplevels(rpoB)) |>
+    complete(SetTemperature, rpoB, fill = list(mumax = -11, maxOD = -11), explicit = FALSE) |>
+    ggplot(aes(x=rpoB, y=mumax, col = SetTemperature, group = interaction(SetTemperature, rpoB))) +
+    geom_boxplot(outliers = FALSE) +
+    geom_jitter(position = position_jitterdodge(jitter.width = 0.2, jitter.height = 0), size = 0.5, alpha = 0.5) +
+    theme_classic() +
+    scale_color_manual(values = cols) +
     theme(legend.position= "none", 
-        plot.title = element_text(size = 18),
-        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10))+
-  coord_cartesian(ylim=c(0.002,0.035))
+          plot.title = element_text(size = 18, face = "italic"),
+          axis.title.y = element_text(size = 18),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10)) +
+    guides(col=guide_legend(title = "Temperature")) +
+    coord_cartesian(ylim=c(-0.001,0.035))
+  
+  if (species == "Escherichia coli") {
+    p_mumax[[species]] <- p_mumax[[species]] +
+      labs(y= expression(mu[max]) , x= "", title = species)
+  } else {
+    p_mumax[[species]] <- p_mumax[[species]] +
+      labs(y= "" , x= "", title = species)
+  }
+}
 
-ecmu <- parms %>% 
-  filter(RIFconc==0) %>% 
-  filter(Species =="Escherichia coli") %>% 
-  ggplot(aes(x=rpoB, y=mumax))+
-  geom_boxplot(aes(alpha=0.5))+
-  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
-  theme_classic()+ 
-  labs(title = expression(italic("E. coli")), y= expression( mu[max]) , x= "")+
-  theme(legend.position= "none", 
-        plot.title = element_text(size = 18),
-        axis.title.y = element_text(size = 18),
-        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10))+
-  coord_cartesian(ylim=c(0.002,0.035))
+p_maxOD <- c()
 
-lpmu <- parms %>% 
-  filter(RIFconc==0) %>% 
-  filter(Species =="Lactiplantibacillus plantarum") %>% 
-  ggplot(aes(x=rpoB, y=mumax))+
-  geom_boxplot(aes(alpha=0.5))+
-  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
-  theme_classic()+ 
-  labs(title = expression(italic("L. plantarum")))+
-  theme(legend.position= "none",
-        plot.title = element_text(size = 18),
-        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10))+
-  xlab("")+
-  ylab("")+
-  coord_cartesian(ylim=c(0.002,0.035))
+for(species in unique(parms$Species)[c(2, 1, 3)]) {
+  p_maxOD[[species]] <- parms |>
+    filter(Species == species) |>
+    mutate(rpoB = droplevels(rpoB)) |>
+    complete(SetTemperature, rpoB, fill = list(mumax = -11, maxOD = -11), explicit = FALSE) |>
+    ggplot(aes(x=rpoB, y=maxOD, col = SetTemperature, group = interaction(SetTemperature, rpoB))) +
+    geom_boxplot(outliers = FALSE) +
+    geom_jitter(position = position_jitterdodge(jitter.width = 0.5, jitter.height = 0), size = 0.5, alpha = 0.5) +
+    theme_classic() +
+    scale_color_manual(values = cols) +
+    theme(legend.position= "bottom", 
+          plot.title = element_text(size = 18),
+          axis.title.y = element_text(size = 18),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10)) +
+    guides(col=guide_legend(title = "Temperature")) +
+    coord_cartesian(ylim=c(0.3, 1.15))
+  
+  if (species == "Escherichia coli") {
+    p_maxOD[[species]] <- p_maxOD[[species]] +
+      labs(y= "maxOD", x= "")
+  } else {
+    p_maxOD[[species]] <- p_maxOD[[species]] +
+      labs(y= "" , x= "")
+  }
+}
 
+SupFig1 <- p_mumax[["Escherichia coli"]] + p_mumax[["Acinetobacter baylyi"]] + p_mumax[["Lactiplantibacillus plantarum"]] +
+  p_maxOD[["Escherichia coli"]] + p_maxOD[["Acinetobacter baylyi"]] + p_maxOD[["Lactiplantibacillus plantarum"]] +
+  plot_layout(nrow = 2, widths = c(20, 20, 15.5), guides = "collect") &
+  theme(legend.position = "bottom")
 
-#maxOD
-abmaxOD <- parms %>% 
-  filter(RIFconc==0) %>% 
-  filter(Species =="Acinetobacter baylyi") %>% 
-  ggplot(aes(x=rpoB, y=maxOD))+
-  geom_boxplot(aes(alpha=0.5))+
-  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
-  theme_classic()+ 
-  theme(legend.position= "none", 
-        axis.title.y = element_text(size = 14),
-        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size= 10))+
-  xlab("")+
-  ylab("")+
-  coord_cartesian(ylim=c(0.3,1.15))
-
-ecmaxOD <- parms %>% 
-  filter(RIFconc==0) %>% 
-  filter(Species =="Escherichia coli") %>% 
-  ggplot(aes(x=rpoB, y=maxOD))+
-  geom_boxplot(aes(alpha=0.5))+
-  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
-  theme_classic()+ 
-  theme(legend.position= "none",
-        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 10))+
-  xlab("")+
-    coord_cartesian(ylim=c(0.3,1.15))
-
-lpmaxOD <- parms %>% 
-  filter(RIFconc==0) %>% 
-  filter(Species =="Lactiplantibacillus plantarum") %>% 
-  ggplot(aes(x=rpoB, y=maxOD))+
-  geom_boxplot(aes(alpha=0.5))+
-  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
-  theme_classic()+ 
-  theme(legend.position= "none", 
-        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 10))+
-  xlab("")+
-  ylab("")+
-  coord_cartesian(ylim=c(0.3,1.15)) 
-
-#MICS
-
-abMIC <- MICs %>% 
-  filter(Species =="Acinetobacter baylyi") %>% 
-  ggplot(aes(x=rpoB, y=MIC)) +
-  geom_point()+
-  theme_classic()+ 
-  xlab("")+
-  ylab("")+
-  theme(axis.title.y = element_text(size = 14),
-        axis.text.x = element_text(angle = 45,  vjust = 1, hjust=1, size = 10))+
-  scale_y_continuous(trans='log10')
-
-ecMIC <- MICs %>% 
-  filter(Species =="Escherichia coli") %>% 
-  ggplot(aes(x=rpoB, y=MIC)) +
-  geom_point()+
-  theme_classic()+ 
-  theme(axis.text.x = element_text(angle = 45,  vjust = 1, hjust=1, size = 10))+
-  xlab("")+
-  ylab("MIC")+
-  scale_y_continuous(trans='log10')
-
-lpMIC <- MICs %>% 
-  filter(Species =="Lactiplantibacillus plantarum") %>% 
-  ggplot(aes(x=rpoB, y=MIC)) +
-  geom_point()+
-  theme_classic()+ 
-  theme(axis.text.x = element_text(angle = 45,  vjust = 1, hjust=1, size = 10))+
-  xlab("")+
-  ylab("")+
-  scale_y_continuous(trans='log10')
-
-SupFig1 <- (ecmu + abmu + lpmu)/(ecmaxOD + abmaxOD + lpmaxOD) / (ecMIC + abMIC +lpMIC)
-SupFig1 
-
-ggsave(SupFig1, filename = "./plots/SupFig1_boxplots.pdf", width=15 ,height= 15 )
-
-#empty working environment to keep everything clean:
-rm.all.but("globsets")
-
-
-# SupFig 2: Temperature assay absolute fitness          ----
-# __________________________________________________________
-#input=  opposite temperature values
-#output= absolute fitness boxplots
-
-GxEParms <- read_csv("./output/growth_parameters_GxE.csv")
-
-abmutemp <- GxEParms %>% 
-  filter(Species =="Acinetobacter baylyi") %>% 
-  ggplot(aes(x=rpoB, y=mumax)) +
-  geom_boxplot(aes(alpha=0.5)) +
-  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
-  theme_classic() + 
-  labs(title = expression(italic("A. baylyi")), y= "" , x= "") +
-  theme(legend.position= "none", 
-        plot.title = element_text(size = 18),
-        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10)) +
-  coord_cartesian(ylim=c(0.00,0.0215))
-
-ecmutemp <- GxEParms %>% 
-  filter(Species =="Escherichia coli") %>% 
-  ggplot(aes(x=rpoB, y=mumax)) +
-  geom_boxplot(aes(alpha=0.5)) +
-  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
-  theme_classic() + 
-  labs(title = expression(italic("E. coli")), y= expression( mu[max]) , x= "") +
-  theme(legend.position= "none", 
-        plot.title = element_text(size = 18),
-        axis.title.y = element_text(size = 18),
-        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10)) +
-  coord_cartesian(ylim=c(0.00,0.0215))
-
-abmaxODtemp <- GxEParms %>% 
-  filter(Species =="Acinetobacter baylyi") %>% 
-  ggplot(aes(x=rpoB, y=maxOD)) +
-  geom_boxplot(aes(alpha=0.5)) +
-  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
-  theme_classic() + 
-  theme(legend.position= "none", 
-        axis.title.y = element_text(size = 14),
-        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size= 10)) +
-  xlab("") +
-  ylab("") +
-  coord_cartesian(ylim=c(0,1.16))
-
-ecmaxODtemp <- GxEParms %>% 
-  filter(Species =="Escherichia coli") %>% 
-  ggplot(aes(x=rpoB, y=maxOD)) +
-  geom_boxplot(aes(alpha=0.5)) +
-  geom_jitter(position = position_jitter(width = 0.1, height = NULL), alpha = 0.3) +
-  theme_classic() + 
-  theme(legend.position= "none",
-        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 10)) +
-  xlab("") +
-  coord_cartesian(ylim=c(0,1.16))
-
-SupFig2 <- (ecmutemp + abmutemp) / (ecmaxODtemp + abmaxODtemp)
-SupFig2
-
-ggsave(SupFig2, filename = "./plots/SupFig2_boxplots_temp.pdf", width=8 ,height= 8 )
-
-#empty working environment to keep everything clean:
-rm.all.but("globsets")
-
-# SupFig 3: Trade-off schematic                         ---
-# __________________________________________________________
-# 
-# library(grid)
-# 
-# df <- data.frame(x = c(0.5, 1.5), y = c(0.5, 1.5))
-# 
-# schem <- ggplot(df, aes(x, y)) +
-#   geom_abline(slope = 1, intercept = 0, linetype = "solid") +
-#   coord_fixed() +
-#   xlim(0.5, 1.2) + ylim(0.5, 1.2) +
-#   geom_vline(xintercept = 1, linetype = "dotted") +
-#   geom_hline(yintercept = 1, linetype = "dotted") +
-#   #geom_rect(xmin = 0, xmax = 1, ymin = 0, ymax = 1, alpha = 0.2, fill = "pink") +
-#   #geom_rect(xmin = 1, xmax = 2,  ymin = 1, ymax = 2,  alpha = 0.2, fill = "pink") +
-#   geom_rect(xmin = 0, xmax = 1,  ymin = 1, ymax = 2,  alpha = 0.2, fill = "grey") +
-#   geom_rect(xmin = 1, xmax = 2,  ymin = 0, ymax = 1,  alpha = 0.2, fill = "grey") +
-#   labs(x = expression("P"[rel]*"(E"[1]*")")) +
-#   labs(y =expression("P"[rel]*"(E"[2]*")" )) +
-#       theme_classic() +
-#   geom_segment(aes(x = 0.7, y = 0.7, xend = 1, yend = 1),
-#                linetype = "solid", color = "steelblue1", size=1.3, 
-#                arrow  = arrow(length = unit(0.2, "cm"), type = "closed", ends= "first")) +
-#   geom_segment(aes(x = 0.7, y = 0.7, xend = 0.7, yend = 0.9),
-#                linetype = "solid", color = "gold", size=1.3, 
-#                arrow  = arrow(length = unit(0.2, "cm"), type = "closed"))
-# 
-# ggsave("./plots/Fig_schematic.pdf", schem, width=4 , height= 4 )
-# 
-# #empty working environment to keep everything clean:
-# rm.all.but("globsets")
-
+ggsave(SupFig1, filename = "./plots/SupFig1_boxplots_alt.pdf", width=15 , height= 8)
 
 # Tables for model fits                                 ----
 # __________________________________________________________

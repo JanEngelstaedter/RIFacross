@@ -246,10 +246,10 @@ plot_epistasis_abspars <- function(post_pred_1, post_pred_2,
     geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "#F21A00") +
     geom_errorbarh(aes(y = y, xmin = xmin, xmax = xmax),
                    data = abs_parms,
-                   alpha = 0.3) +
+                   alpha = 0.3, height = 0) +
     geom_errorbar(aes(x = x, ymin = ymin, ymax = ymax),
                   data = abs_parms,
-                  alpha = 0.3) +
+                  alpha = 0.3, width = 0) +
     geom_label_repel(aes(x = x, y = y, label = rpoB),
                      data = abs_parms,
                      size = 4,
