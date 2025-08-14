@@ -120,3 +120,48 @@ range_with_padding <- function(x, mult = 0.05) {
   padding <- diff(r) * mult
   r + c(-padding, padding)
 }
+
+
+posterior_table_caption <- function(model_type, variable, condition = NULL, formula = NULL) {
+  cap <- paste0("Summary of the posterior distribution for the ",
+                model_type,
+                " model for ",
+                variable,
+                " as the reponse variable, and mutation")
+  if (model_type == "GxE") {
+    cap <- paste0(cap, " and temperature")
+  } else if (model_type == "GxG") {
+    cap <- paste0(cap, " and species") 
+  } else if (model_type == "GxGxE") {
+    cap <- paste0(cap, ", temperature and species")
+  }
+  cap <- paste0(cap, " as independent variables.")
+  cap <- paste0(cap, " The columns show the mean, standard deviation, and credibile interval of the posterior distribution for each estimated parameter.")
+  if (model_type == "GxE") {
+    cap <- paste0(cap, " This model fit is for species ", condition, ". ")
+  } else if (model_type == "GxG") {
+    cap <- paste0(cap, " This model fit is for species pair ", condition, ". ")
+  } else if (model_type == "GxGxE") {
+    cap <- paste0(cap, " This model fit is for species pair \\textit{E.~coli} / \\textit{A.~baylyi}.")
+  }
+  cap <- paste0(cap, " Formula used for fit: ", as.character(formula[1]), ".")
+  return(cap)
+}
+
+polish_posterior_tables <- function(tex) {
+  tex_polished <- tex |>
+    str_replace_all(" ~ ", " $\\\\sim$ ") |>
+    str_replace_all("SetTemperature", "Temperature") |>
+    str_replace_all("rpoB", "Mutation") |>
+    str_replace_all("SpeciesAcinetobacterbaylyi", "SpeciesAbaylyi") |>
+    str_replace_all("SpeciesLactiplantibacillusplantarum", "SpeciesLplantarum") |>
+    str_replace_all(" EC_AB", " \\\\textit{E.~coli} / \\\\textit{A.~baylyi}") |>
+    str_replace_all(" EC_LP", " \\\\textit{E.~coli} / \\\\textit{L.~plantarum}") |>
+    str_replace_all(" AB_LP", " \\\\textit{A.~baylyi} / \\\\textit{L.~plantarum}") |>
+    str_replace_all(" Acinetobacter baylyi", " \\\\textit{A.~baylyi}") |>
+    str_replace_all(" Escherichia coli", " \\\\textit{E.~coli}") |>
+    str_replace_all("_Acinetobacter baylyi", "_Abaylyi") |>
+    str_replace_all("_Escherichia coli", "_Ecoli") |>
+    str_replace_all("mumax", "$\\\\mu_{\\\\text{max}}$")
+  return(tex_polished)
+}

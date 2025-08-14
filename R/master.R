@@ -634,25 +634,32 @@ SupFig1 <- p_mumax[["Escherichia coli"]] + p_mumax[["Acinetobacter baylyi"]] + p
   plot_layout(nrow = 2, widths = c(20, 20, 15.5), guides = "collect") &
   theme(legend.position = "bottom")
 
-ggsave(SupFig1, filename = "./plots/SupFig1_boxplots_alt.pdf", width=15 , height= 8)
+ggsave(SupFig1, filename = "./plots/SupFig1_boxplots.pdf", width=15 , height= 8)
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
+
+
 
 # Tables for model fits                                 ----
 # __________________________________________________________
 
 # GxE models:
+all_tables <- NULL
 load("output/brms_fit_GxE_models.RData")
 vars <- names(all_fits)
 for(v in vars) {
   models <- names(all_fits[[v]])
   for(m in models) {
-  brms::posterior_summary(all_fits[[v]][[m]], 
+    all_tables <- brms::posterior_summary(all_fits[[v]][[m]], 
                           probs = c((1 - globsets$cred_int)/2, 0.5 + globsets$cred_int/2), 
                           central = FALSE) |>
-    xtable() |>
-    print(file = paste0("tables/posterior_summary_GxE_", v, "_", m, ".tex"))
+    xtable(caption = posterior_table_caption("GxE", v, m, formula(all_fits[[v]][[m]])),
+           digits = c(0, 4, 4, 4, 4),
+           label = paste0("supptab:GxE_", v, "_", m)) |>
+    print(type = "latex", file = "") |>
+    capture.output() %>%
+    c(all_tables, rep("", 3), .)
   }
 }
 
@@ -662,35 +669,51 @@ vars <- names(all_fits$fits)
 for(v in vars) {
   models <- names(all_fits$fits[[v]])
   for(m in models) {
-    brms::posterior_summary(all_fits$fits[[v]][[m]], 
+    all_tables <- brms::posterior_summary(all_fits$fits[[v]][[m]], 
                             probs = c((1 - globsets$cred_int)/2, 0.5 + globsets$cred_int/2), 
                             central = FALSE) |>
-      xtable() |>
-      print(file = paste0("tables/posterior_summary_GxG_", v, "_", m, ".tex"))
+      xtable(caption = posterior_table_caption("GxG", v, m, formula(all_fits$fits[[v]][[m]])),
+             digits = c(0, 4, 4, 4, 4),
+             label = paste0("supptab:GxG_", v, "_", m)) |>
+      print(type = "latex", file = "") |>
+      capture.output() %>%
+      c(all_tables, rep("", 3), .)
   }
 }
 
-load("output/brms_fit_single_model_mumax.RData")
-load("output/brms_fit_single_model_maxOD.RData")
+# GxGxE models:
+load("output/brms_fit_GxGxE_model.RData")
+vars <- names(all_fits)
+for(v in vars) {
+  all_tables <- brms::posterior_summary(all_fits[[v]], 
+                          probs = c((1 - globsets$cred_int)/2, 0.5 + globsets$cred_int/2), 
+                          central = FALSE) |>
+    xtable(caption = posterior_table_caption("GxGxE", v, formula = formula(all_fits[[v]])),
+           digits = c(0, 4, 4, 4, 4),
+           label = paste0("supptab:GxGxE_", v)) |>
+    print(type = "latex", file = "", size = "\\footnotesize") |>
+    capture.output() %>%
+    c(all_tables, rep("", 3), .)
+}
 
-brms::posterior_summary(maxOD_fit, probs = c(0.025, 0.975), central = FALSE) |>
-  xtable() |>
-  print(file = "tables/posterior_summary_singlefit_maxOD.tex")
+load("output/brms_fit_GxGxE_model_no3way.RData")
+vars <- names(all_fits)
+for(v in vars) {
+  all_tables <- brms::posterior_summary(all_fits[[v]], 
+                          probs = c((1 - globsets$cred_int)/2, 0.5 + globsets$cred_int/2), 
+                          central = FALSE) |>
+    xtable(caption = posterior_table_caption("GxGxE", v, formula = formula(all_fits[[v]])),
+           digits = c(0, 4, 4, 4, 4),
+           label = paste0("supptab:GxGxe_no3way_", v)) |>
+    print(type = "latex", file = "", size = "\\footnotesize") |>
+    capture.output() %>%
+    c(all_tables, rep("", 3), .)
+}
 
-brms::posterior_summary(mumax_fit, probs = c(0.025, 0.975), central = FALSE) |>
-  xtable() |>
-  print(file = "tables/posterior_summary_singlefit_mumax.tex")
-
-load("output/brms_fit_single_model_mumax_3way.RData")
-load("output/brms_fit_single_model_maxOD_3way.RData")
-
-brms::posterior_summary(maxOD_fit, probs = c(0.025, 0.975), central = FALSE) |>
-  xtable() |>
-  print(file = "tables/posterior_summary_singlefit_maxOD_3way.tex")
-
-brms::posterior_summary(mumax_fit, probs = c(0.025, 0.975), central = FALSE) |>
-  xtable() |>
-  print(file = "tables/posterior_summary_singlefit_mumax_3way.tex")
+# polish and save as .tex file:
+all_tables |>
+  polish_posterior_tables() |>
+  writeLines("tables/all_supp_tables.tex")
 
 
 
