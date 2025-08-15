@@ -126,7 +126,7 @@ rm.all.but()
 #output= GxE assay growth parameters (growth_parameters_GxE.csv)
 
 projects <- read_csv("./data/global_key.csv") |>
-  filter(Project_ID== "A_baylyi_Ian" | Project_ID == "E_coli_Alicia")
+  filter(Project_ID == "A_baylyi_Ian" | Project_ID == "E_coli_Alicia")
 dat <- vector(mode = "list", length = nrow(projects))
 names(dat) <- projects$Project_ID
 analysis <- dat
@@ -639,6 +639,33 @@ ggsave(SupFig1, filename = "./plots/SupFig1_boxplots.pdf", width=15 , height= 8)
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
+
+# Table of all mutants                                 ----
+# __________________________________________________________
+
+read_csv("./output/combined_parms_absence_antibiotics.csv" ) |>
+  distinct(Species, rpoB, AA_mut_name, AA_mut_name_Ecoli) |>
+  mutate(Species = abbreviate_species_name(Species)) |>
+  filter(rpoB != "WT") |>
+  mutate(AA_mut_name = str_replace(AA_mut_name, "rpoB_", "")) |>
+  mutate(AA_pos = str_extract(AA_mut_name, "\\d+")) |>
+  mutate(Position = str_extract(AA_mut_name_Ecoli, "\\d+")) |>
+  mutate(Mutation = str_replace(AA_mut_name, "^([A-Za-z])\\d+([A-Za-z])$", "\\1 → \\2")) |>
+  select(-AA_mut_name) |>
+  mutate(AA_pos = if_else(rpoB == "dup1611", "538", AA_pos)) |>
+  mutate(Mutation = if_else(rpoB == "dup1611", "dup", Mutation)) |>
+  mutate(Position = if_else(rpoB == "dup1611", "531", Position)) |>
+  pivot_wider(names_from = Species, values_from = AA_pos) |>
+  select(Position, Mutation, "E. coli", "A. baylyi", "L. plantarum") |>
+  arrange(Position) |>
+  xtable(caption = "Rifampicin resistance mutants used in this study.
+         The first columns show the amino acid position in \\textit{E. coli} coordinates and the amino acid substitution. 
+         The remaining columns show the mutations used in this study, with numbers indicating the amino acid positions in the three focal species. 
+         Mutations shown in the same row are homologues.",
+         label = "tab:mutations") |>
+  print(type = "latex", file = "tables/mutations.tex", include.rownames = FALSE, floating = TRUE,
+        table.placement = "H",
+        size = "\\small\\renewcommand{\\arraystretch}{0.8}")
 
 
 # Tables for model fits                                 ----
