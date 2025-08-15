@@ -24,21 +24,16 @@ globsets <- list(
   random_seed = 22,
   cred_int = 0.95)
 
-# Step 1: Loading and processing MIC assay data         ----
+# Step 1: Loading and processing OD data             ----
 # __________________________________________________________
 #input= raw OD data and spec files 
-#output= growth parameters (analysis_h20.RData) and growth curve plots
-
+#output= processed OD data
 
 projects <- read_csv("./data/global_key.csv")
 dat <- vector(mode = "list", length = nrow(projects))
 names(dat) <- projects$Project_ID
-analysis <- dat
 
 for(i in 1:nrow(projects)) {
-  cat("--------------------------------------------------------\n")
-  cat(paste0(">>> Working on project ", projects$Project_ID[i], "\n"))
-  cat("--------------------------------------------------------\n\n")
   # wrangling:
   dat[[i]] <- processODData(specPath = paste0("./data/", projects$Project_ID[i], "/specs/"),
                             dataPath = paste0("./data/", projects$Project_ID[i], "/OD_raw"))
@@ -63,87 +58,21 @@ for(i in 1:nrow(projects)) {
                                  OD - meanBlankOD_low2,
                                  blankedOD))
   }
-  
-  # quality control:
-  qcODData(dat[[i]], path = paste0("./output/QC/", projects$Project_ID[i], "/"))
-  
-  # plotting:
-  plot_growthData(dat[[i]], paste0("./plots/", projects$Project_ID[i], "_growthcurves.pdf"))
-  analysis[[i]] <- analyseODData(dat[[i]], tmin = 1, h = 20)
-  # adding additional information from project:
-  analysis[[i]]$pars$Project_ID <- projects$Project_ID[i]
-  analysis[[i]]$pars$Species <- projects$Species[i]
-  cat("\n")
-}
-save(analysis, file = "./output/analysis_h20.RData")
-
-# produce single table with parameter estimates for all species:
-parms <- NULL
-for(i in 1:nrow(projects)) {
-  parms <- rbind(parms, analysis[[i]]$pars)
 }
 
-# add genetic information:
-muts <- read_csv("./data/Genetic_data/muts.csv")
-muts_Edward_lookup <- muts |>
-  filter(Ref_code == "ALJElab (Edward)") |>
-  mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", "")) |>
-  pull(Genotype, name = rpoB)
-
-# attach rpoB mutations to growth parameters:
-parms <- parms |>
-  # standardise names for susceptible wildtype:
-  mutate(Strain = ifelse(Strain %in% c("AB3", "MG1655", "Wild Type"), 
-                         "WT", Strain)) |>
-  # fix Edward's strain names:
-  mutate(Strain = ifelse((Project_ID == "L_plantarum_Edward") & (Strain != "WT"), 
-                         muts_Edward_lookup[Strain],
-                         Strain)) |>
-  left_join(muts, by = join_by(Species, Strain == Genotype)) |>
-  select(Project_ID, Species, Strain,
-         Nt_mut_name, Nt_mut_name_Ecoli, AA_mut_name, AA_mut_name_Ecoli, SetTemperature,
-         RIFconc, Replicate,
-         mumax, r2, maxOD) |>
-  arrange(Species, Strain, RIFconc, Replicate)
-
-parms$AA_pos <- as.numeric(gsub("[^0-9]","", parms$AA_mut_name_Ecoli))
-parms <- parms %>% arrange(AA_pos) %>% 
-  mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", "")) %>% 
-  filter(!(Species == "Acinetobacter baylyi" & (Strain %in% c("RM08", "RM15")))) # remove two mutants that are the same as RM10 and RM12
-parms$rpoB[parms$Nt_mut_name =="rpoB_dup1611"] <- "dup1611"
-parms$rpoB[parms$Strain =="WT"] <- "WT"
-
-write_csv(parms, "./output/growth_parameters_h20.csv")
-
-#empty working environment to keep everything clean:
-rm.all.but()
-
-
-
-# Step 2: Loading and processing data for GxE analyses    ----
-# __________________________________________________________
-#input= raw OD data, spec files and genetic information
-#output= GxE assay growth parameters (growth_parameters_GxE.csv)
-
+# additional data:
 projects <- read_csv("./data/global_key.csv") |>
   filter(Project_ID == "A_baylyi_Ian" | Project_ID == "E_coli_Alicia")
-dat <- vector(mode = "list", length = nrow(projects))
-names(dat) <- projects$Project_ID
-analysis <- dat
+dat_add <- vector(mode = "list", length = nrow(projects))
+names(dat_add) <- paste0(projects$Project_ID, "_add")
 
 for(i in 1:nrow(projects)) {
-  cat("--------------------------------------------------------\n")
-  cat(paste0(">>> Working on project ", projects$Project_ID[i], "\n"))
-  cat("--------------------------------------------------------\n\n")
-  dat[[i]] <- processODData(specPath = paste0("./data/", projects$Project_ID[i], "/specs_temp/"),
+  dat_add[[i]] <- processODData(specPath = paste0("./data/", projects$Project_ID[i], "/specs_temp/"),
                             dataPath = paste0("./data/", projects$Project_ID[i], "/OD_temp"))
-  dat[[i]] <- dat[[i]] |>
+  dat_add[[i]] <- dat_add[[i]] |>
     blankODs(groups = "Strain") 
-  dat[[i]] <- dat[[i]] |>
+  dat_add[[i]] <- dat_add[[i]] |>
     filter(!is.na(Media))
-  
-  analysis[[i]] <- analyseODData(dat[[i]], tmin = 1, h = 20)
-  cat("\n")
 }
 
 #add the last replicate of A. baylyi
@@ -157,77 +86,93 @@ extra <- processODData(specPath = "./data/A_baylyi_Ian/specs_temp",
   filter(!(Well == "D6" & Time_h > 15)) %>%  #Seems like mutation at end
   select(-ONCtemp)
 
-extraAn <- analyseODData(extra,  tmin = 1, h = 20)
+# merge all data into single object and save it:
+all_OD_data <- c(dat, dat_add, list(A_baylyi_Ian_extra = extra))
 
-analysis$A_baylyi_Ian$pars <- analysis$A_baylyi_Ian$pars %>% 
-  bind_rows(extraAn$pars)
-
-save(analysis, file = "./output/analysis_GxE.RData")
-
-#Add genetic mutations 
-load("./output/analysis_GxE.RData")
-
-#remove A. baylyi replicates that didn't grow at 37degrees
-analysis$A_baylyi_Ian$pars <- analysis$A_baylyi_Ian$pars %>% 
-  filter(!(Date == "20/09/2024" & Strain %in% c("RM14", "R24")))
-
-GxEParms <- NULL
-# turn analysis list into single data frame:
-for(i in 1:nrow(projects)) {
-  analysis[[i]]$pars$Project_ID <- projects$Project_ID[i]
-  analysis[[i]]$pars$Species <- projects$Species[i]
-  GxEParms <- rbind(GxEParms, analysis[[i]]$pars)
-}
-
-muts <- read_csv("./data/Genetic_data/muts.csv")
-
-GxEParms <- GxEParms |>
-  left_join(muts, by = join_by(Species, Strain == Genotype)) |>
-  select(Project_ID, Species, Strain,
-         Nt_mut_name, Nt_mut_name_Ecoli, AA_mut_name, AA_mut_name_Ecoli, 
-         SetTemperature,
-         mumax, r2, maxOD) |>
-  arrange(Species, Strain)
-
-GxEParms$AA_pos <- as.numeric(gsub("[^0-9]","", GxEParms$AA_mut_name_Ecoli))
-GxEParms <- GxEParms %>% arrange(AA_pos) 
-GxEParms$AA_mut_name_Ecoli[GxEParms$Strain =="WT"] <- "WT"
-
-GxEParms <- GxEParms %>%
-  mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", "")) 
-GxEParms$rpoB[GxEParms$Strain =="WT"] <- "WT"
-
-GxEParms$mumax[is.na(GxEParms$mumax)] <- 0 
-
-write_csv(GxEParms, "./output/growth_parameters_GxE.csv")
+save(all_OD_data, file = "output/all_OD_data.RData")
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
-# Step 3: Fitting separate models to E. coli and A. baylyi (for GxE analysis) ----
+
+# Step 2: Analysing OD data             ----
+# __________________________________________________________
+#input= project metadata, processed OD data, genetic data
+#output= file with all estimated growth parameters
+
+projects <- read_csv("./data/global_key.csv")
+load(file = "output/all_OD_data.RData")
+muts <- read_csv("./data/Genetic_data/muts.csv")
+
+# merge all tables into single one and analyse:
+OD_data_filtered <- all_OD_data |>
+  bind_rows(.id = "Project_ID") |>
+  filter(is.na(RIFconc) | RIFconc < 1e-9) |>
+  filter(WellType == "DATA") |>
+  mutate(Project_ID = str_replace(Project_ID, "_add", "")) |>
+  mutate(Project_ID = str_replace(Project_ID, "_extra", "")) |>
+  left_join(projects, by = join_by(Project_ID)) |>
+  filter(!(Species == "Acinetobacter baylyi" & (Strain %in% c("RM08", "RM15")))) |> # remove two mutants that are the same as RM10 and RM12
+  filter(!(Species == "Acinetobacter baylyi" & Date == "20/09/2024" & Strain %in% c("RM14", "R24"))) #remove A. baylyi replicates that didn't grow at 37degrees
+
+growth_parms <- analyseODData(OD_data_filtered, method = "easylinear", tmin = 1, h = 20)$pars |> as_tibble()
+#growth_parms_spline <- as_tibble(analyseODData(method = "spline", tmin = 1, h = 20)$pars)
+
+# adding genetic information
+muts_Edward_lookup <- muts |>
+  filter(Ref_code == "ALJElab (Edward)") |>
+  mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", "")) |>
+  pull(Genotype, name = rpoB)
+
+growth_parms <- growth_parms |>
+  # standardise names for susceptible wildtype:
+  mutate(Strain = ifelse(Strain %in% c("AB3", "MG1655", "Wild Type"), 
+                         "WT", Strain)) |>
+  # fix Edward's strain names:
+  mutate(Strain = ifelse((Project_ID == "L_plantarum_Edward") & (Strain != "WT"), 
+                         muts_Edward_lookup[Strain],
+                         Strain)) |>
+  left_join(muts, by = join_by(Species, Strain == Genotype)) |>
+  select(Project_ID, 
+         Species, Strain, Nt_mut_name, Nt_mut_name_Ecoli, AA_mut_name, AA_mut_name_Ecoli, 
+         SetTemperature, Replicate,
+         mumax, r2, maxOD) |>
+  mutate(AA_pos = as.numeric(gsub("[^0-9]","", AA_mut_name_Ecoli))) |>
+  mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", "")) |>
+  mutate(rpoB = if_else(Nt_mut_name == "rpoB_dup1611", "dup1611", rpoB)) |>
+  mutate(rpoB = if_else(Strain == "WT", "WT", rpoB)) |>
+  arrange(Species, Strain, Replicate)
+
+write_csv(growth_parms, file = "output/growth_parameters_easylinear_h20.csv")
+
+#empty working environment to keep everything clean:
+rm.all.but()
+
+
+# Step 3: Fitting separate models to E. coli and A. baylyi (GxE analysis) ----
 # ________________________________________________________________________________
 #input= combined_parms_absence_antibiotics.csv
 #output= brms_fit_GxE_models.RData containing four brms fits
 
-parms_all <- read_csv("./output/combined_parms_absence_antibiotics.csv") |>
+growth_parms <- read_csv("./output/growth_parameters_easylinear_h20.csv") |>
   filter(Species != "Lactiplantibacillus plantarum") |>
   mutate(Species = fct_relevel(factor(Species), "Escherichia coli")) |>
   mutate(SetTemperature = fct_relevel(factor(SetTemperature), "37")) |>
   mutate(rpoB = fct_relevel(factor(rpoB), "WT"))
 
 # filter out non-overlapping mutations:
-overlap <- intersect(parms_all |> filter(Species == "Escherichia coli") |> pull(rpoB),
-                     parms_all |> filter(Species == "Acinetobacter baylyi") |> pull(rpoB))
-parms_all <- parms_all |>
+overlap <- intersect(growth_parms |> filter(Species == "Escherichia coli") |> pull(rpoB),
+                     growth_parms |> filter(Species == "Acinetobacter baylyi") |> pull(rpoB))
+growth_parms <- growth_parms |>
   filter(rpoB %in% overlap)
 
-species <- levels(parms_all$Species)
+species <- levels(growth_parms$Species)
 
 all_fits <- c()
 
 for (i in 1:length(species)) {    
-  dat <- parms_all |>
-    filter(parms_all$Species== species[i]) |>
+  dat <- growth_parms |>
+    filter(growth_parms$Species== species[i]) |>
     select(SetTemperature, rpoB, mumax, maxOD)
   all_fits[["mumax"]][[species[i]]] <- brm(mumax ~ rpoB * SetTemperature, data = dat)
   all_fits[["maxOD"]][[species[i]]] <- brm(maxOD ~ rpoB * SetTemperature, data = dat)
@@ -238,12 +183,12 @@ save(all_fits, file = "output/brms_fit_GxE_models.RData")
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
-# Step 4: Fitting models to all species pairs (for GxG analysis) ----
+# Step 4: Fitting models to all species pairs (GxG analysis) ----
 # ___________________________________________________________________
 #input=  combined_parms_absence_antibiotics.csv
 #output= brms_fit_GxG_models.RData, containing six brms fits
 
-parms_all <- read_csv("./output/combined_parms_absence_antibiotics.csv") |>
+growth_parms <- read_csv("./output/growth_parameters_easylinear_h20.csv") |>
   mutate(rpoB = fct_relevel(factor(rpoB), "WT"))
 
 species_pairs <- data.frame(Pair = c("EC_AB", "EC_LP", "AB_LP"),
@@ -256,9 +201,9 @@ all_fits <- c()
 
 for (i in 1:nrow(species_pairs)) {
   # filter out non-overlapping mutations:
-  overlap <- intersect(parms_all |> filter(Species == species_pairs$Species1[i]) |> pull(rpoB),
-                       parms_all |> filter(Species == species_pairs$Species2[i]) |> pull(rpoB))
-  dat <- parms_all |>
+  overlap <- intersect(growth_parms |> filter(Species == species_pairs$Species1[i]) |> pull(rpoB),
+                       growth_parms |> filter(Species == species_pairs$Species2[i]) |> pull(rpoB))
+  dat <- growth_parms |>
     filter(rpoB %in% overlap) |>
     filter(Species %in% species_pairs[i, c("Species1", "Species2")]) |>
     select(Species, rpoB, mumax, maxOD) |>
@@ -272,15 +217,15 @@ all_fits[["legend"]] <- species_pairs
 save(all_fits, file = "output/brms_fit_GxG_models.RData")
 
 
-# Step 5: Fitting single model to E. coli & A. baylyi data (for GxGxE analysis) ----
+# Step 5: Fitting single model to E. coli & A. baylyi data (GxGxE analysis) ----
 # __________________________________________________________________________________
 #input=  combined_parms_absence_antibiotics.csv
 #output= brms_fit_GxGxE_model.RData containing two brms fits
 
-parms_all <-  read_csv("./output/combined_parms_absence_antibiotics.csv" )
+growth_parms <-  read_csv("./output/growth_parameters_easylinear_h20.csv" )
 
 #find overlapping mutations 
-overlapping <- parms_all %>% 
+overlapping <- growth_parms %>% 
   filter(Species != "Lactiplantibacillus plantarum") %>% 
   distinct(Species, rpoB, Strain) %>% 
   pivot_wider(names_from = Species, values_from = Strain) %>% 
@@ -289,7 +234,7 @@ overlapping <- parms_all %>%
 
 overlap <- unique(overlapping$rpoB)
 
-GxE_mod <- parms_all %>% 
+GxE_mod <- growth_parms %>% 
   filter(rpoB %in% overlap) %>% 
   filter(Species != "Lactiplantibacillus plantarum") |>
   mutate(rpoB = fct_relevel(factor(rpoB), "WT")) |>
@@ -562,10 +507,7 @@ rm.all.but("globsets")
 
 set.seed(globsets$random_seed)
 
-parms <- read_csv("./output/growth_parameters_h20.csv") |>
-  filter(RIFconc < 1e-9) |>
-  bind_rows(read_csv("./output/combined_parms_absence_antibiotics.csv" )) |>
-  filter(!is.na(rpoB)) |>
+parms <- read_csv("./output/growth_parameters_easylinear_h20.csv") |>
   mutate(SetTemperature = fct_relevel(factor(SetTemperature), "30")) |>
   mutate(rpoB = fct_reorder(factor(rpoB), AA_pos, .na_rm = FALSE)) |>
   mutate(rpoB = fct_relevel(rpoB, "WT")) |>

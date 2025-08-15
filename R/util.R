@@ -165,3 +165,7 @@ polish_posterior_tables <- function(tex) {
     str_replace_all("mumax", "$\\\\mu_{\\\\text{max}}$")
   return(tex_polished)
 }
+
+abbreviate_species_name <- function(s) {
+  return(str_replace(s, "^(\\p{L})\\p{L}*", "\\1."))
+}
