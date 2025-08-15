@@ -116,7 +116,6 @@ OD_data_filtered <- all_OD_data |>
   filter(!(Species == "Acinetobacter baylyi" & Date == "20/09/2024" & Strain %in% c("RM14", "R24"))) #remove A. baylyi replicates that didn't grow at 37degrees
 
 growth_parms <- analyseODData(OD_data_filtered, method = "easylinear", tmin = 1, h = 20)$pars |> as_tibble()
-#growth_parms_spline <- as_tibble(analyseODData(method = "spline", tmin = 1, h = 20)$pars)
 
 # adding genetic information
 muts_Edward_lookup <- muts |>
@@ -144,6 +143,29 @@ growth_parms <- growth_parms |>
   arrange(Species, Strain, Replicate)
 
 write_csv(growth_parms, file = "output/growth_parameters_easylinear_h20.csv")
+
+growth_parms_spline <- analyseODData(OD_data_filtered, method = "spline", tmin = 1, h = 20)$pars |> as_tibble()
+# same with spline-fitted growth parameters:
+growth_parms_spline <- growth_parms_spline |>
+  # standardise names for susceptible wildtype:
+  mutate(Strain = ifelse(Strain %in% c("AB3", "MG1655", "Wild Type"), 
+                         "WT", Strain)) |>
+  # fix Edward's strain names:
+  mutate(Strain = ifelse((Project_ID == "L_plantarum_Edward") & (Strain != "WT"), 
+                         muts_Edward_lookup[Strain],
+                         Strain)) |>
+  left_join(muts, by = join_by(Species, Strain == Genotype)) |>
+  select(Project_ID, 
+         Species, Strain, Nt_mut_name, Nt_mut_name_Ecoli, AA_mut_name, AA_mut_name_Ecoli, 
+         SetTemperature, Replicate,
+         mumax, r2, maxOD) |>
+  mutate(AA_pos = as.numeric(gsub("[^0-9]","", AA_mut_name_Ecoli))) |>
+  mutate(rpoB = str_replace(AA_mut_name_Ecoli, "rpoB_", "")) |>
+  mutate(rpoB = if_else(Nt_mut_name == "rpoB_dup1611", "dup1611", rpoB)) |>
+  mutate(rpoB = if_else(Strain == "WT", "WT", rpoB)) |>
+  arrange(Species, Strain, Replicate)
+
+write_csv(growth_parms_spline, file = "output/growth_parameters_spline.csv")
 
 #empty working environment to keep everything clean:
 rm.all.but()
@@ -683,6 +705,11 @@ for(v in vars) {
 all_tables |>
   polish_posterior_tables() |>
   writeLines("tables/all_supp_tables.tex")
+
+
+# Sanity check with spline fitted growth parameters     ----
+# __________________________________________________________
+
 
 
 
