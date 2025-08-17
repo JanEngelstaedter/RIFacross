@@ -144,8 +144,9 @@ growth_parms <- growth_parms |>
 
 write_csv(growth_parms, file = "output/growth_parameters_easylinear_h20.csv")
 
-growth_parms_spline <- analyseODData(OD_data_filtered, method = "spline", tmin = 1, h = 20)$pars |> as_tibble()
 # same with spline-fitted growth parameters:
+growth_parms_spline <- analyseODData(OD_data_filtered, method = "spline", tmin = 1, df = 20)$pars |> as_tibble()
+
 growth_parms_spline <- growth_parms_spline |>
   # standardise names for susceptible wildtype:
   mutate(Strain = ifelse(Strain %in% c("AB3", "MG1655", "Wild Type"), 
@@ -168,7 +169,7 @@ growth_parms_spline <- growth_parms_spline |>
 write_csv(growth_parms_spline, file = "output/growth_parameters_spline.csv")
 
 #empty working environment to keep everything clean:
-rm.all.but()
+rm.all.but("globsets")
 
 
 # Step 3: Fitting separate models to E. coli and A. baylyi (GxE analysis) ----
@@ -710,6 +711,19 @@ all_tables |>
 # Sanity check with spline fitted growth parameters     ----
 # __________________________________________________________
 
+growth_parms_both <- read_csv(file = "output/growth_parameters_easylinear_h20.csv") |>
+  select(maxOD, mumax) |>
+  rename(maxOD_easylinear = maxOD, mumax_easylinear = mumax) |>
+  bind_cols(read_csv(file = "output/growth_parameters_spline.csv")) |>
+  rename(maxOD_spline = maxOD, mumax_spline = mumax) |>
+  filter(!is.na(mumax_easylinear) & !is.na(mumax_spline))
 
+ggplot(growth_parms_both) +
+  geom_point(aes(x = maxOD_easylinear, y = maxOD_spline), alpha = 0.5) +
+  theme_bw()
+cor(growth_parms_both$maxOD_easylinear, growth_parms_both$maxOD_spline)
 
-
+ggplot(growth_parms_both) +
+  geom_point(aes(x = mumax_easylinear, y = mumax_spline), col = "blue", alpha = 0.2) +
+  theme_bw()
+cor(growth_parms_both$mumax_easylinear, growth_parms_both$mumax_spline)
