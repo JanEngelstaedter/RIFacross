@@ -378,65 +378,8 @@ ggsave("plots/Fig1_explainer.png", plot = p, height = 5, width = 4.8)
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
-# Fig 2: GxE scatterplots ----
-# __________________________________________________________
-#input=  Bayesian model fits
-#output= GxE figure
 
-set.seed(globsets$random_seed)
-
-load("output/brms_fit_GxE_models.RData")
-variables <- names(all_fits)
-species <- names(all_fits[["mumax"]])
-p <- c()
-
-for(i in 1:length(variables)) {
-  if (variables[i] == "mumax") {
-    xlab <- expression(mu[max] * "(37"* degree *"C)")
-    ylab <- expression(mu[max] *"(30"* degree *"C)")
-  } else if (variables[i] == "maxOD") {
-    xlab <- expression("maxOD (37"* degree *"C)")
-    ylab <- expression("maxOD (30"* degree *"C)")
-  }
-  for(j in 1:length(species)) {
-    fit <- all_fits[[variables[i]]][[species[j]]]
-    newdata <- expand_grid(SetTemperature = levels(fit$data$SetTemperature),
-                           rpoB = levels(fit$data$rpoB))
-    post_preds <- fit |>
-      epred_draws(newdata = newdata) |>
-      group_by(across(all_of(colnames(newdata)))) |>
-      mean_hdi(.epred, .width = globsets$cred_int)
-    
-    post_pred_1 <- post_preds |>
-      filter(SetTemperature == "37") |>
-      select(rpoB, .epred, .lower, .upper) |>
-      rename(mean = .epred, hdi_lower = .lower, hdi_upper = .upper)
-    
-    post_pred_2 <- post_preds |>
-      filter(SetTemperature == "30") |>
-      select(rpoB, .epred, .lower, .upper) |>
-      rename(mean = .epred, hdi_lower = .lower, hdi_upper = .upper)
-    
-    p[[variables[i]]][[species[j]]] <- plot_epistasis_abspars(post_pred_1, 
-                                                              post_pred_2,
-                                                              xlab, ylab, leglab = "GxE")
-  }
-}
-
-Fig1 <- (p[["mumax"]][["Escherichia coli"]] + p[["mumax"]][["Acinetobacter baylyi"]])/
-  (p[["maxOD"]][["Escherichia coli"]] + p[["maxOD"]][["Acinetobacter baylyi"]])
-Fig1 <- Fig1 + plot_layout(guides = "collect") + 
-  plot_annotation(tag_levels = 'A')& 
-  theme(plot.tag = element_text(size = 14),
-        legend.position = "bottom")
-
-ggsave(Fig1, filename = "./plots/Fig2_GxE_speciesfits.png",  width = 10, height = 10)
-
-#empty working environment to keep everything clean:
-rm.all.but("globsets")
-
-
-# Fig 3: Epistasis scatterplots               ----
+# Fig 2: Epistasis scatterplots               ----
 # __________________________________________________________
 #input=  Bayesian relative parameters
 #output= 
@@ -488,17 +431,75 @@ for(i in 1:length(variables)) {
   }
 }
 
-Fig3 <- (p[["mumax"]][["EC_AB"]] + p[["mumax"]][["EC_LP"]] + p[["mumax"]][["AB_LP"]])/
+fig <- (p[["mumax"]][["EC_AB"]] + p[["mumax"]][["EC_LP"]] + p[["mumax"]][["AB_LP"]])/
   (p[["maxOD"]][["EC_AB"]] + p[["maxOD"]][["EC_LP"]] + p[["maxOD"]][["AB_LP"]])
-Fig3 <- Fig3 + plot_layout(guides = "collect") + 
+fig <- fig + plot_layout(guides = "collect") + 
   plot_annotation(tag_levels = 'A')& 
   theme(plot.tag = element_text(size = 14),
         legend.position = "bottom")
 
-ggsave(Fig3, filename = "./plots/Fig3_GxG_speciespairfits.png",  width = 15, height = 10)
+ggsave(fig, filename = "./plots/Fig2_GxG_speciespairfits.png",  width = 15, height = 10)
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
+
+# Fig 3: GxE scatterplots ----
+# __________________________________________________________
+#input=  Bayesian model fits
+#output= GxE figure
+
+set.seed(globsets$random_seed)
+
+load("output/brms_fit_GxE_models.RData")
+variables <- names(all_fits)
+species <- names(all_fits[["mumax"]])
+p <- c()
+
+for(i in 1:length(variables)) {
+  if (variables[i] == "mumax") {
+    xlab <- expression(mu[max] * "(37"* degree *"C)")
+    ylab <- expression(mu[max] *"(30"* degree *"C)")
+  } else if (variables[i] == "maxOD") {
+    xlab <- expression("maxOD (37"* degree *"C)")
+    ylab <- expression("maxOD (30"* degree *"C)")
+  }
+  for(j in 1:length(species)) {
+    fit <- all_fits[[variables[i]]][[species[j]]]
+    newdata <- expand_grid(SetTemperature = levels(fit$data$SetTemperature),
+                           rpoB = levels(fit$data$rpoB))
+    post_preds <- fit |>
+      epred_draws(newdata = newdata) |>
+      group_by(across(all_of(colnames(newdata)))) |>
+      mean_hdi(.epred, .width = globsets$cred_int)
+    
+    post_pred_1 <- post_preds |>
+      filter(SetTemperature == "37") |>
+      select(rpoB, .epred, .lower, .upper) |>
+      rename(mean = .epred, hdi_lower = .lower, hdi_upper = .upper)
+    
+    post_pred_2 <- post_preds |>
+      filter(SetTemperature == "30") |>
+      select(rpoB, .epred, .lower, .upper) |>
+      rename(mean = .epred, hdi_lower = .lower, hdi_upper = .upper)
+    
+    p[[variables[i]]][[species[j]]] <- plot_epistasis_abspars(post_pred_1, 
+                                                              post_pred_2,
+                                                              xlab, ylab, leglab = "GxE")
+  }
+}
+
+fig <- (p[["mumax"]][["Escherichia coli"]] + p[["mumax"]][["Acinetobacter baylyi"]])/
+  (p[["maxOD"]][["Escherichia coli"]] + p[["maxOD"]][["Acinetobacter baylyi"]])
+fig <- fig + plot_layout(guides = "collect") + 
+  plot_annotation(tag_levels = 'A')& 
+  theme(plot.tag = element_text(size = 14),
+        legend.position = "bottom")
+
+ggsave(fig, filename = "./plots/Fig3_GxE_speciesfits.png",  width = 10, height = 10)
+
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
+
 
 # Fig 4: posterior distributions for single fit ----
 # __________________________________________________________
