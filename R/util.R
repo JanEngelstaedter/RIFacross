@@ -127,7 +127,7 @@ posterior_table_caption <- function(model_type, variable, condition = NULL, form
                 model_type,
                 " model for ",
                 variable,
-                " as the reponse variable, and mutation")
+                " as the response variable, and mutation")
   if (model_type == "GxE") {
     cap <- paste0(cap, " and temperature")
   } else if (model_type == "GxG") {
@@ -136,7 +136,7 @@ posterior_table_caption <- function(model_type, variable, condition = NULL, form
     cap <- paste0(cap, ", temperature and species")
   }
   cap <- paste0(cap, " as independent variables.")
-  cap <- paste0(cap, " The columns show the mean, standard deviation, and credibile interval of the posterior distribution for each estimated parameter.")
+  cap <- paste0(cap, " The columns show the mean, standard deviation, and credible interval of the posterior distribution for each estimated parameter.")
   if (model_type == "GxE") {
     cap <- paste0(cap, " This model fit is for species ", condition, ". ")
   } else if (model_type == "GxG") {
@@ -144,13 +144,13 @@ posterior_table_caption <- function(model_type, variable, condition = NULL, form
   } else if (model_type == "GxGxE") {
     cap <- paste0(cap, " This model fit is for species pair \\textit{E.~coli} / \\textit{A.~baylyi}.")
   }
-  cap <- paste0(cap, " Formula used for fit: ", as.character(formula[1]), ".")
+  cap <- paste0(cap, " Formula used for fit: ", formula_to_latex(formula), ".")
   return(cap)
 }
 
 polish_posterior_tables <- function(tex) {
   tex_polished <- tex |>
-    str_replace_all(" ~ ", " $\\\\sim$ ") |>
+#    str_replace_all(" ~ ", " $\\\\sim$ ") |>
     str_replace_all("SetTemperature", "Temperature") |>
     str_replace_all("rpoB", "Mutation") |>
     str_replace_all("SpeciesAcinetobacterbaylyi", "SpeciesAbaylyi") |>
@@ -161,11 +161,41 @@ polish_posterior_tables <- function(tex) {
     str_replace_all(" Acinetobacter baylyi", " \\\\textit{A.~baylyi}") |>
     str_replace_all(" Escherichia coli", " \\\\textit{E.~coli}") |>
     str_replace_all("_Acinetobacter baylyi", "_Abaylyi") |>
-    str_replace_all("_Escherichia coli", "_Ecoli") |>
-    str_replace_all("mumax", "$\\\\mu_{\\\\text{max}}$")
+    str_replace_all("_Escherichia coli", "_Ecoli") #|>
+#    str_replace_all("mumax", "\\\\mu_{\\\\text{max}}$") |>
+#    str_replace_all(" \\* ", " $*$ ") |>
+#    str_replace_all(" + ", " $+$ ")
   return(tex_polished)
 }
 
 abbreviate_species_name <- function(s) {
   return(str_replace(s, "^(\\p{L})\\p{L}*", "\\1."))
+}
+
+
+# chatGPT solution to convert statistical formula to LaTex:
+formula_to_latex <- function(f) {
+  # get formula string
+  f_str <- as.character(f)[1]
+  
+  # split by spaces
+  tokens <- strsplit(f_str, " ")[[1]]
+  
+  # process each token
+  tokens <- sapply(tokens, function(tok) {
+    # skip operators
+    if (tok %in% c("~", "+", "-", "*", "/", "(", ")")) return(tok)
+    # handle mumax
+    if (tok == "mumax") return("\\mu_{\\text{max}}")
+    # wrap other words in \text{}
+    if (grepl("^[A-Za-z][A-Za-z0-9_]*$", tok)) return(paste0("\\text{", tok, "}"))
+    # otherwise leave as is
+    tok
+  })
+  
+  # collapse back
+  f_str <- paste(tokens, collapse = " ")
+  
+  # wrap in math mode
+  paste0("$", f_str, "$")
 }

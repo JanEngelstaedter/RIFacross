@@ -40,6 +40,12 @@ for(i in 1:nrow(projects)) {
   if(projects$Project_ID[i] == "A_baylyi_Ian") {
     dat[[i]] <- dplyr::rename(dat[[i]], RIFconc = Concentration)  
   }
+  # manual correction of error where column in plate wasn't inoculated:
+  if (projects$Project_ID[i] == "A_baylyi_Maddie") {
+    dat[[i]] <- dat[[i]] |>
+      mutate(WellType = if_else(Plate == "MIC_512_strains4" & Replicate == "1" & Row == "G", "EMPTY", WellType))
+  }
+  
   dat[[i]] <- dat[[i]] |>
     blankODs(groups = "RIFconc") |>
     mutate(RIFconc = as.double(RIFconc)) 
@@ -94,8 +100,7 @@ save(all_OD_data, file = "output/all_OD_data.RData")
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
-
-# Step 2: Analysing OD data             ----
+# Step 2: Analysing OD data                             ----
 # __________________________________________________________
 #input= project metadata, processed OD data, genetic data
 #output= file with all estimated growth parameters
@@ -218,7 +223,7 @@ species_pairs <- data.frame(Pair = c("EC_AB", "EC_LP", "AB_LP"),
                             Species1 = c(rep("Escherichia coli", 2), "Acinetobacter baylyi"),
                             Species2 = c("Acinetobacter baylyi", rep("Lactiplantibacillus plantarum", 2)),
                             SetTemperature1 = c("37", "37", "30"),
-                            SetTemperature1 = c("30", "30", "30"))
+                            SetTemperature2 = c("30", "30", "30"))
 
 all_fits <- c()
 
@@ -228,7 +233,8 @@ for (i in 1:nrow(species_pairs)) {
                        growth_parms |> filter(Species == species_pairs$Species2[i]) |> pull(rpoB))
   dat <- growth_parms |>
     filter(rpoB %in% overlap) |>
-    filter(Species %in% species_pairs[i, c("Species1", "Species2")]) |>
+    filter(((Species == species_pairs$Species1[i]) & (SetTemperature == species_pairs$SetTemperature1[i])) |
+           ((Species == species_pairs$Species2[i]) & (SetTemperature == species_pairs$SetTemperature2[i]))) |>
     select(Species, rpoB, mumax, maxOD) |>
     mutate(Species = fct_relevel(factor(Species), species_pairs$Species1[i]))
   all_fits[["fits"]][["mumax"]][[species_pairs$Pair[i]]] <- brm(mumax ~ rpoB * Species, data = dat)
@@ -239,6 +245,8 @@ all_fits[["legend"]] <- species_pairs
 
 save(all_fits, file = "output/brms_fit_GxG_models.RData")
 
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
 
 # Step 5: Fitting single model to E. coli & A. baylyi data (GxGxE analysis) ----
 # __________________________________________________________________________________
@@ -384,11 +392,11 @@ p <- c()
 
 for(i in 1:length(variables)) {
   if (variables[i] == "mumax") {
-    xlab <- expression(mu[max] * "(30"* degree *"C)")
-    ylab <- expression(mu[max] *"(37"* degree *"C)")
+    xlab <- expression(mu[max] * "(37"* degree *"C)")
+    ylab <- expression(mu[max] *"(30"* degree *"C)")
   } else if (variables[i] == "maxOD") {
-    xlab <- expression("maxOD (30"* degree *"C)")
-    ylab <- expression("maxOD (37"* degree *"C)")
+    xlab <- expression("maxOD (37"* degree *"C)")
+    ylab <- expression("maxOD (30"* degree *"C)")
   }
   for(j in 1:length(species)) {
     fit <- all_fits[[variables[i]]][[species[j]]]
@@ -400,12 +408,12 @@ for(i in 1:length(variables)) {
       mean_hdi(.epred, .width = globsets$cred_int)
     
     post_pred_1 <- post_preds |>
-      filter(SetTemperature == "30") |>
+      filter(SetTemperature == "37") |>
       select(rpoB, .epred, .lower, .upper) |>
       rename(mean = .epred, hdi_lower = .lower, hdi_upper = .upper)
     
     post_pred_2 <- post_preds |>
-      filter(SetTemperature == "37") |>
+      filter(SetTemperature == "30") |>
       select(rpoB, .epred, .lower, .upper) |>
       rename(mean = .epred, hdi_lower = .lower, hdi_upper = .upper)
     
@@ -608,7 +616,7 @@ rm.all.but("globsets")
 # Table of all mutants                                 ----
 # __________________________________________________________
 
-read_csv("./output/combined_parms_absence_antibiotics.csv" ) |>
+read_csv("./output/growth_parameters_easylinear_h20.csv" ) |>
   distinct(Species, rpoB, AA_mut_name, AA_mut_name_Ecoli) |>
   mutate(Species = abbreviate_species_name(Species)) |>
   filter(rpoB != "WT") |>
