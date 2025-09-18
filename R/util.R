@@ -175,27 +175,16 @@ abbreviate_species_name <- function(s) {
 
 # chatGPT solution to convert statistical formula to LaTex:
 formula_to_latex <- function(f) {
-  # get formula string
   f_str <- as.character(f)[1]
-  
-  # split by spaces
   tokens <- strsplit(f_str, " ")[[1]]
   
-  # process each token
   tokens <- sapply(tokens, function(tok) {
-    # skip operators
-    if (tok %in% c("~", "+", "-", "*", "/", "(", ")")) return(tok)
-    # handle mumax
+    if (tok == "~") return("\\sim")   # replace tilde
+    if (tok %in% c("+", "-", "*", "/", "(", ")")) return(tok)
     if (tok == "mumax") return("\\mu_{\\text{max}}")
-    # wrap other words in \text{}
     if (grepl("^[A-Za-z][A-Za-z0-9_]*$", tok)) return(paste0("\\text{", tok, "}"))
-    # otherwise leave as is
     tok
   })
   
-  # collapse back
-  f_str <- paste(tokens, collapse = " ")
-  
-  # wrap in math mode
-  paste0("$", f_str, "$")
+  paste0("$", paste(tokens, collapse = " "), "$")
 }
