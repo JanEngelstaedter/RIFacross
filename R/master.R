@@ -107,7 +107,8 @@ all_OD_data |>
   filter(is.na(RIFconc) | RIFconc < 1e-9) |>
   filter(WellType != "EMPTY") |>
   select(Species, Plate:OD) |>
-  select(-RIFconc, -Time_min, -Row, -Column) |>
+  select(-RIFconc, -Date, -Time_min, -Row, -Column, -PlateReader, -SetTemperature) |>
+  mutate(Time_h = sprintf("%.4f", Time_h)) |>
   write_csv("output/all_OD_data.csv")
 
 #empty working environment to keep everything clean:
