@@ -97,6 +97,19 @@ all_OD_data <- c(dat, dat_add, list(A_baylyi_Ian_extra = extra))
 
 save(all_OD_data, file = "output/all_OD_data.RData")
 
+# save a reduced version for publication:
+projects <- read_csv("./data/global_key.csv")
+all_OD_data |>
+  bind_rows(.id = "Project_ID") |>
+  mutate(Project_ID = str_replace(Project_ID, "_add", "")) |>
+  mutate(Project_ID = str_replace(Project_ID, "_extra", "")) |>
+  left_join(projects, by = join_by(Project_ID)) |>
+  filter(is.na(RIFconc) | RIFconc < 1e-9) |>
+  filter(WellType != "EMPTY") |>
+  select(Species, Plate:OD) |>
+  select(-RIFconc, -Time_min, -Row, -Column) |>
+  write_csv("output/all_OD_data.csv")
+
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
