@@ -614,7 +614,25 @@ ggsave(SupFig1, filename = "./plots/SupFig1_boxplots.pdf", width=15 , height= 8)
 rm.all.but("globsets")
 
 
-# Table of all mutants                                 ----
+# Figure for talk: OD through-time                       ----
+# __________________________________________________________
+
+projects <- read_csv("./data/global_key.csv")
+load(file = "output/all_OD_data.RData")
+
+dat_plot <- all_OD_data$E_coli_Alicia |>
+  filter(WellType == "DATA", RIFconc == 0, SetTemperature == 37) |>
+  filter(Strain %in% c("R14", "R8", "R19"))
+
+p <- ggplot(dat_plot) +
+  geom_line(aes(x = Time_h, y = blankedOD, col = Strain, group = interaction(Strain, Plate, SetTemperature))) +
+  theme_bw() +
+  labs(x = "Time [h]", y = "Optical density") +
+  theme(legend.position = "none")
+
+ggsave("plots/OD_through_time.pdf", height = 3, width = 4)  
+  
+# Table of all mutants                                  ----
 # __________________________________________________________
 
 read_csv("./output/growth_parameters_easylinear_h20.csv" ) |>
