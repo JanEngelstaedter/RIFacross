@@ -347,6 +347,8 @@ W1 <- 1
 W2 <- 0.8
 M1 <- 0.5
 M2 <-0.6
+M2_noepi <- W2 + M1 - W1
+
 arrow_offset <- 0.02
 arrow_length <- unit(0.02, "npc")
 label_a <- "italic(a)"
@@ -354,7 +356,76 @@ label_b2 <- "italic(b)[2]"
 label_bM <- "italic(b)[M]"
 label_bM2 <- "italic(b)[M2]"
 
-p <- plot_epistasis_bg(W1, W2, 0, 1.2, 0, 1.2) +
+# plot A (traditional fitness landscape):
+data_plot <- tibble(Genotype = c(expression(italic(W)[1]), 
+                                 expression(italic(W)[2]), 
+                                 expression(italic(M)[1]),
+                                 expression(italic(M)[2]),
+                                 expression(italic(M)[2])),
+                    Steps = c(0, 1, 1, 2, 2),
+                    Trait = c(W1, W2, M1, M2, M2_noepi))
+
+plot_theme <-   theme_light() +
+  theme(axis.text.x = element_text(size = 4 * 2.83),
+        axis.text.y = element_text(size = 4 * 2.83), 
+        axis.title.x = element_text(size = 12),
+        axis.title.y = element_text(size = 12),
+        axis.ticks.y = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+
+
+pA <- ggplot(data_plot) +
+  geom_line(aes(Steps, Trait), data = data_plot[c(2, 5),], col = "grey") +
+  geom_line(aes(Steps, Trait), data = data_plot[c(3, 5),], col = "grey") +
+  geom_point(aes(Steps, Trait), size = 4, col = c(rep("black", 4), "grey")) +
+  geom_line(aes(Steps, Trait), data = data_plot[c(-3, -5),]) +
+  geom_line(aes(Steps, Trait), data = data_plot[c(-2, -5),]) +
+  scale_x_continuous(labels = NULL, breaks = c(0, 1, 2), limits = c(0, 2)) +
+  scale_y_continuous(labels = NULL, limits = c(0, 1.2), expand = c(0, 0)) +
+  annotate("text", 
+           x = data_plot$Steps, 
+           y = data_plot$Trait + 0.06, 
+           label = data_plot$Genotype, 
+           parse = TRUE, 
+           size = 5,
+           col = c(rep("black", 4), "grey")) +
+  # geom_segment(aes(x = 2.2, y = 0, xend = 2.2, yend = W1),
+  #              arrow = arrow(length = unit(0.2, "cm"), type = "closed")) +
+  # geom_segment(aes(x = 2.3, y = W1, xend = 2.3, yend = W2),
+  #              arrow = arrow(length = unit(0.2, "cm"), type = "closed")) +
+  # geom_segment(aes(x = 2.4, y = W1, xend = 2.4, yend = M1),
+  #              arrow = arrow(length = unit(0.2, "cm"), type = "closed")) +
+  # geom_segment(aes(x = 2.5, y = W2 - W1 + M1, xend = 2.5, yend = M2),
+  #              arrow = arrow(length = unit(0.2, "cm"), type = "closed")) +
+  # annotate("text", x = 2.2, y = 1.06, label = label_a, parse = TRUE, size = 3) +
+  # annotate("text", x = 2.3, y = 1.06, label = label_b2, parse = TRUE, size = 3) +
+  # annotate("text", x = 2.4, y = 1.06, label = label_bM, parse = TRUE, size = 3) +
+  # annotate("text", x = 2.53, y = 1.06, label = label_bM2, parse = TRUE, size = 3) +
+  labs(x = "Genotype", y = "Trait") +
+  plot_theme
+
+pA
+
+pA_legend <- ggplot(data_plot) +
+  scale_x_continuous(labels = NULL, limits = c(0.9, 5)) +
+  scale_y_continuous(labels = NULL, limits = c(0, 1.2), expand = c(0, 0)) +
+  geom_segment(aes(x = 1, y = 0, xend = 1, yend = W1),
+               arrow = arrow(length = unit(0.2, "cm"), type = "closed")) +
+  geom_segment(aes(x = 2, y = W1, xend = 2, yend = W2),
+               arrow = arrow(length = unit(0.2, "cm"), type = "closed")) +
+  geom_segment(aes(x = 3, y = W1, xend = 3, yend = M1),
+               arrow = arrow(length = unit(0.2, "cm"), type = "closed")) +
+  geom_segment(aes(x = 4, y = W2 - W1 + M1, xend = 4, yend = M2),
+               arrow = arrow(length = unit(0.2, "cm"), type = "closed")) +
+  annotate("text", x = 1, y = 1.06, label = label_a, parse = TRUE, size = 3) +
+  annotate("text", x = 2, y = 1.06, label = label_b2, parse = TRUE, size = 3) +
+  annotate("text", x = 3, y = 1.06, label = label_bM, parse = TRUE, size = 3) +
+  annotate("text", x = 4, y = 1.06, label = label_bM2, parse = TRUE, size = 3) +
+  theme_void()
+
+# plot B (our own visualisation):
+pB <- plot_epistasis_bg(W1, W2, 0, 1.2, 0, 1.2) +
   geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "#F21A00") +
   scale_x_continuous(breaks = c(W1, M1), labels = c(expression(italic(W)[1]), expression(italic(M)[1])), 
                      limits = c(0, 1.2), expand = c(0, 0)) +
@@ -385,9 +456,14 @@ p <- plot_epistasis_bg(W1, W2, 0, 1.2, 0, 1.2) +
         axis.text.x = element_text(size = 4 * 2.83),
         axis.text.y = element_text(size = 4 * 2.83), 
         axis.title.x = element_text(size = 12),
-        axis.title.y = element_text(size = 12))
+        axis.title.y = element_text(size = 12),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
 
-ggsave("plots/Fig1_explainer.png", plot = p, height = 5, width = 4.8)
+p <- (pA + labs(tag = "A")) + pA_legend + (pB + labs(tag = "B")) +
+  plot_layout(widths = c(1, 0.21, 1))
+
+ggsave("plots/Fig1_explainer.png", plot = p, height = 5, width = 9.6)
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
