@@ -396,7 +396,8 @@ maxOD_fit_no3way <- brm(maxOD ~ rpoB*Species +
              SetTemperature*Species + 
              rpoB*SetTemperature, 
              data = GxE_mod) |>
-    add_criterion(c("loo", "bayes_R2"), reloo = TRUE)
+  add_criterion("loo", reloo = TRUE) |>
+  add_criterion("bayes_R2")
 summary(maxOD_fit_no3way)
 #plot(maxOD_fit_no3way)
 
@@ -404,20 +405,23 @@ mumax_fit_no3way <- brm(mumax ~ rpoB*Species +
                                   SetTemperature*Species + 
                                   rpoB*SetTemperature, 
                         data = GxE_mod) |>
-    add_criterion(c("loo", "bayes_R2"), reloo = TRUE)
+  add_criterion("loo", reloo = TRUE) |>
+  add_criterion("bayes_R2")
 summary(mumax_fit_no3way)
 #plot(mumax_fit_no3way)
 
 # model fit with 3-way interactions:
 maxOD_fit <- brm(maxOD ~ rpoB*Species*SetTemperature, 
                  data = GxE_mod) |>
-    add_criterion(c("loo", "bayes_R2"), reloo = TRUE)
+  add_criterion("loo", reloo = TRUE) |>
+  add_criterion("bayes_R2")
 summary(maxOD_fit)
 #plot(maxOD_fit)
 
 mumax_fit <- brm(mumax ~ rpoB*Species*SetTemperature, 
                  data = GxE_mod) |>
-    add_criterion(c("loo", "bayes_R2"), reloo = TRUE)
+  add_criterion("loo", reloo = TRUE) |>
+  add_criterion("bayes_R2")
 summary(mumax_fit)
 #plot(mumax_fit)
 
@@ -441,18 +445,14 @@ bridge_no3way <- bridge_sampler(mumax_fit_no3way)
 bridge <- bridge_sampler(mumax_fit)
 bayes_factor(bridge, bridge_no3way)
 
-loo_no3way <- loo(mumax_fit_no3way, reloo = TRUE)
-loo <- loo(mumax_fit, reloo = TRUE)
-loo_compare(loo_no3way, loo)
+loo_compare(mumax_fit_no3way, mumax_fit)
 
 bayes_R2(mumax_fit_no3way)
 bayes_R2(mumax_fit)
 
 # max OD
 
-loo_no3way <- loo(maxOD_fit_no3way, reloo = TRUE)
-loo <- loo(maxOD_fit, reloo = TRUE)
-loo_compare(loo_no3way, loo)
+loo_compare(maxOD_fit_no3way, maxOD_fit)
 
 bayes_R2(maxOD_fit_no3way)
 bayes_R2(maxOD_fit)
