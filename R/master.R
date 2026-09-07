@@ -311,6 +311,7 @@ save(all_fits, file = "output/brms_fit_GxG_models.RData")
 
 # comparing the simpler vs. the interactions models:
 load(file = "output/brms_fit_GxG_models.RData")
+Pair = c("EC_AB", "EC_LP", "AB_LP")
 
 R2_int_mumax <- list()
 R2_int_maxOD <- list()
@@ -320,7 +321,7 @@ R2_noint_maxOD <- list()
 compare_loo_maxOD <- list()
 compare_loo_mumax <- list()
 
-for (i in species_pairs$Pair) {
+for (i in Pair) {
   R2_int_mumax[[i]] <- bayes_R2(all_fits[["fits"]][["mumax"]][[i]])
   R2_int_maxOD[[i]] <- bayes_R2(all_fits[["fits"]][["maxOD"]][[i]])
   R2_noint_mumax[[i]] <- bayes_R2(all_fits[["fits_noint"]][["mumax"]][[i]])
@@ -436,26 +437,27 @@ all_fits <- list(mumax = mumax_fit,
 save(all_fits, file = "output/brms_fit_GxGxE_model.RData")
 
 # comparing the simpler vs. the 3-way model:
+all_fits_noint <- get(load(file = "output/brms_fit_GxGxE_model_no3way.RData"))
+all_fits <- get(load(file = "output/brms_fit_GxGxE_model.RData"))
 
 # mu_max
-pp_check(mumax_fit_no3way)
-pp_check(mumax_fit)
 
-bridge_no3way <- bridge_sampler(mumax_fit_no3way)
-bridge <- bridge_sampler(mumax_fit)
-bayes_factor(bridge, bridge_no3way)
+#pp_check(mumax_fit_no3way)
+#pp_check(mumax_fit)
 
-loo_compare(mumax_fit_no3way, mumax_fit)
+#bridge_no3way <- bridge_sampler(mumax_fit_no3way)
+#bridge <- bridge_sampler(mumax_fit)
+#bayes_factor(bridge, bridge_no3way)
 
-bayes_R2(mumax_fit_no3way)
-bayes_R2(mumax_fit)
+loo_compare(all_fits_noint[["mumax"]], all_fits[["mumax"]])
+bayes_R2(all_fits_noint[["mumax"]])
+bayes_R2(all_fits[["mumax"]])
 
 # max OD
 
-loo_compare(maxOD_fit_no3way, maxOD_fit)
-
-bayes_R2(maxOD_fit_no3way)
-bayes_R2(maxOD_fit)
+loo_compare(all_fits_noint[["maxOD"]], all_fits[["maxOD"]])
+bayes_R2(all_fits_noint[["maxOD"]])
+bayes_R2(all_fits[["maxOD"]])
 
 
 
