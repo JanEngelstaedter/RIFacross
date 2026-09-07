@@ -188,3 +188,53 @@ formula_to_latex <- function(f) {
   
   paste0("$", paste(tokens, collapse = " "), "$")
 }
+
+
+get_R2_draws <- function(fit) {
+  r2 <- fit$criteria$bayes_R2
+  if (is.null(r2)) r2 <- bayes_R2(fit, summary = FALSE)
+  as.numeric(r2)
+}
+
+get_loo <- function(fit) {
+  l <- fit$criteria$loo
+  if (is.null(l) || !all(is.finite(l$estimates[, "Estimate"]))) {
+    message("  recomputing loo with reloo = TRUE ...")
+    l <- loo(fit, reloo = TRUE)
+  }
+  l
+}
+
+extract_comparison <- function(fit_full, fit_reduced, analysis, response, contrast) {
+  L_full <- get_loo(fit_full)
+  L_red  <- get_loo(fit_reduced)
+  
+  e_full <- L_full$pointwise[, "elpd_loo"]
+  e_red  <- L_red$pointwise[, "elpd_loo"]
+  stopifnot(length(e_full) == length(e_red))
+  
+  d         <- e_full - e_red                # pointwise: interaction - additive
+  elpd_diff <- sum(d)                        # = elpd_loo(full) - elpd_loo(reduced)
+  se_diff   <- sqrt(length(d) * var(d))      # identical to loo_compare's se_diff
+  
+  if (!is.finite(elpd_diff))
+    warning("non-finite elpd_diff for ", analysis, " / ", response, " / ", contrast,
+            call. = FALSE)
+  
+  r2f <- get_R2_draws(fit_full)
+  r2r <- get_R2_draws(fit_reduced)
+  
+  tibble(
+    analysis, response, contrast,
+    elpd_diff, se_diff,
+    favoured = case_when(!is.finite(elpd_diff) ~ NA_character_,
+                         elpd_diff > 0         ~ "interaction",
+                         TRUE                  ~ "additive"),
+    R2_additive       = mean(r2r),
+    R2_additive_lo    = unname(quantile(r2r, lo)),
+    R2_additive_hi    = unname(quantile(r2r, hi)),
+    R2_interaction    = mean(r2f),
+    R2_interaction_lo = unname(quantile(r2f, lo)),
+    R2_interaction_hi = unname(quantile(r2f, hi))
+  )
+}

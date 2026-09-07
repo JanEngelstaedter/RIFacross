@@ -507,6 +507,57 @@ save(all_fits, file = "output/brms_fit_GxG_models_lethality.RData")
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
+# Step 7: Model comparisons ----
+# ___________________________________________________________________
+#input=  combined_parms_absence_antibiotics.csv
+#output= brms_fit_GxG_models.RData, containing six brms fits
+
+lo <- (1 - globsets$cred_int) / 2
+hi <- 1 - lo
+
+# load all fit objects:
+ge    <- get(load("output/brms_fit_GxE_models.RData"))          # interaction
+gen   <- get(load("output/brms_fit_GplusE_models.RData"))       # additive
+gg    <- get(load("output/brms_fit_GxG_models.RData"))          # $fits / $fits_noint / $legend
+gxe3  <- get(load("output/brms_fit_GxGxE_model.RData"))         # $mumax / $maxOD  (3-way)
+gxe3n <- get(load("output/brms_fit_GxGxE_model_no3way.RData"))  # $mumax / $maxOD  (no 3-way)
+
+# build the raw comparison table:
+comparison_table <- bind_rows(
+  
+  # GxE: rpoB + Temp  vs  rpoB * Temp, per species
+  map_dfr(names(ge$mumax), \(sp) bind_rows(
+    extract_comparison(ge$mumax[[sp]], gen$mumax[[sp]], "GxE", "mumax", sp),
+    extract_comparison(ge$maxOD[[sp]], gen$maxOD[[sp]], "GxE", "maxOD", sp)
+  )),
+  
+  # GxG: rpoB + Species  vs  rpoB * Species, per species pair
+  map_dfr(gg$legend$Pair, \(pr) bind_rows(
+    extract_comparison(gg$fits$mumax[[pr]], gg$fits_noint$mumax[[pr]], "GxG", "mumax", pr),
+    extract_comparison(gg$fits$maxOD[[pr]], gg$fits_noint$maxOD[[pr]], "GxG", "maxOD", pr)
+  )),
+  
+  # GxGxE: all 2-way  vs  full 3-way
+  extract_comparison(gxe3$mumax, gxe3n$mumax, "GxGxE", "mumax", "EC_AB"),
+  extract_comparison(gxe3$maxOD, gxe3n$maxOD, "GxGxE", "maxOD", "EC_AB")
+)
+
+# tidy labels:
+pretty_contrast <- c(
+  "Escherichia coli"     = "E. coli",
+  "Acinetobacter baylyi" = "A. baylyi",
+  "EC_AB" = "E. coli / A. baylyi",
+  "EC_LP" = "E. coli / L. plantarum",
+  "AB_LP" = "A. baylyi / L. plantarum"
+)
+
+comparison_table <- comparison_table |>
+  mutate(contrast = coalesce(pretty_contrast[contrast], contrast))
+
+write_csv(comparison_table, "output/model_comparison.csv")
+
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
 
 # Fig 1: Info plot explaining following figures ----
 # __________________________________________________________
@@ -1056,6 +1107,33 @@ all_tables |>
   polish_posterior_tables() |>
   writeLines("tables/all_supp_tables.tex")
 
+
+# Table for model comparisons                          ----
+# __________________________________________________________
+
+tab <- read_csv("output/model_comparison.csv") 
+tab |>
+  mutate(Model = paste0(response, " TILDE ", analysis)) |>
+  select(-analysis, -response) |>
+  select(Model, everything()) |>
+  rename(Contrast = "contrast", Favoured = "favoured") |>
+  xtable(caption = "Comparisons between model fits including interaction terms (e.g., maxOD $\\sim$ GxE) and the corresponding models without interaction terms (e.g., maxOD $\\sim$ G+E). Columns indicate the model and response variable for each species or species pair, the difference in the Expected Log Pointwise Predictive Density (ELPD) between the standard errors (se), which model is favoured through leave-one-out cross validation, as well as the $R^2$ values for both models along with their 95\\% credible intervals.",
+         digits = rep(3, 12),
+         label = "supptab:model_comparisons") |>
+  print(type = "latex", file = "", 
+        size = "\\footnotesize",
+        include.rownames = FALSE) |>
+  capture.output() |>
+  str_replace_all("elpd\\\\_diff", "$\\\\Delta$ELPD") |>
+  str_replace_all("se\\\\_diff", "$\\\\Delta$se") |>
+  str_replace_all("R2\\\\_additive\\\\_lo", "Q2.5") |>
+  str_replace_all("R2\\\\_additive\\\\_hi", "Q97.5") |>
+  str_replace_all("R2\\\\_interaction\\\\_lo", "Q2.5") |>
+  str_replace_all("R2\\\\_interaction\\\\_hi", "Q97.5") |>
+  str_replace_all("R2\\\\_additive", "$R\\^2_{\\\\text{additive}}$") |>
+  str_replace_all("R2\\\\_interaction", "$R\\^2_{\\\\text{interaction}}$") |>
+  str_replace_all("TILDE", "$\\\\sim$") |>
+  writeLines("tables/comparison_table.tex")
 
 # Sanity check with spline fitted growth parameters     ----
 # __________________________________________________________
