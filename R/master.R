@@ -5,7 +5,7 @@ library(tidyverse)
 library(grow96)
 library(varhandle)
 library(brms)
-#options(brms.backend = "cmdstanr")
+options(brms.backend = "cmdstanr")
 library(broom)
 library(tidybayes)
 library(ggrepel)
@@ -322,9 +322,12 @@ bridge_no3way <- bridge_sampler(mumax_fit_no3way)
 bridge <- bridge_sampler(mumax_fit)
 bayes_factor(bridge, bridge_no3way)
 
-loo_no3way <- loo(mumax_fit_no3way, moment_match = TRUE)
-loo <- loo(mumax_fit, moment_match = TRUE)
+loo_no3way <- loo(mumax_fit_no3way, reloo = TRUE)
+loo <- loo(mumax_fit, reloo = TRUE)
 loo_compare(loo_no3way, loo)
+
+bayes_R2(mumax_fit_no3way)
+bayes_R2(mumax_fit)
 
 # saving fits
 all_fits <- list(mumax = mumax_fit_no3way,
