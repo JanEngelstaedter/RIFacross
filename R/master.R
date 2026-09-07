@@ -5,7 +5,7 @@ library(tidyverse)
 library(grow96)
 library(varhandle)
 library(brms)
-#options(brms.backend = "cmdstanr")
+options(brms.backend = "cmdstanr")
 library(broom)
 library(tidybayes)
 library(ggrepel)
@@ -216,14 +216,58 @@ for (i in 1:length(species)) {
   dat <- growth_parms |>
     filter(growth_parms$Species== species[i]) |>
     select(SetTemperature, rpoB, mumax, maxOD)
-  all_fits[["mumax"]][[species[i]]] <- brm(mumax ~ rpoB * SetTemperature, data = dat)
-  all_fits[["maxOD"]][[species[i]]] <- brm(maxOD ~ rpoB * SetTemperature, data = dat)
+  all_fits[["mumax"]][[species[i]]] <- brm(mumax ~ rpoB * SetTemperature, data = dat) |>
+    add_criterion(c("loo", "bayes_R2"), reloo = TRUE)
+  all_fits[["maxOD"]][[species[i]]] <- brm(maxOD ~ rpoB * SetTemperature, data = dat) |>
+    add_criterion(c("loo", "bayes_R2"), reloo = TRUE)
 }
 
 save(all_fits, file = "output/brms_fit_GxE_models.RData")
 
+all_fits_noint <- c()
+
+for (i in 1:length(species)) {    
+  dat <- growth_parms |>
+    filter(growth_parms$Species== species[i]) |>
+    select(SetTemperature, rpoB, mumax, maxOD)
+  all_fits_noint[["mumax"]][[species[i]]] <- brm(mumax ~ rpoB + SetTemperature, data = dat) |>
+    add_criterion(c("loo", "bayes_R2"), reloo = TRUE)
+  all_fits_noint[["maxOD"]][[species[i]]] <- brm(maxOD ~ rpoB + SetTemperature, data = dat) |>
+    add_criterion(c("loo", "bayes_R2"), reloo = TRUE)
+}
+
+save(all_fits_noint, file = "output/brms_fit_GplusE_models.RData")
+
+# comparing the simpler vs. the interactions models:
+load(file = "output/brms_fit_GplusE_models.RData")
+load(file = "output/brms_fit_GxE_models.RData")
+
+# E. coli
+# mu_max 
+loo_compare(all_fits_noint[["mumax"]][["Escherichia coli"]], all_fits[["mumax"]][["Escherichia coli"]])
+bayes_R2(all_fits_noint[["mumax"]][["Escherichia coli"]])
+bayes_R2(all_fits[["mumax"]][["Escherichia coli"]])
+
+# max OD
+loo_compare(all_fits_noint[["maxOD"]][["Escherichia coli"]], all_fits[["maxOD"]][["Escherichia coli"]])
+bayes_R2(all_fits_noint[["maxOD"]][["Escherichia coli"]])
+bayes_R2(all_fits[["maxOD"]][["Escherichia coli"]])
+
+# A. baylyi
+# mu_max 
+loo_compare(all_fits_noint[["mumax"]][["Acinetobacter baylyi"]], all_fits[["mumax"]][["Acinetobacter baylyi"]])
+bayes_R2(all_fits_noint[["mumax"]][["Acinetobacter baylyi"]])
+bayes_R2(all_fits[["mumax"]][["Acinetobacter baylyi"]])
+
+# max OD
+loo_compare(all_fits_noint[["maxOD"]][["Acinetobacter baylyi"]], all_fits[["maxOD"]][["Acinetobacter baylyi"]])
+bayes_R2(all_fits_noint[["maxOD"]][["Acinetobacter baylyi"]])
+bayes_R2(all_fits[["maxOD"]][["Acinetobacter baylyi"]])
+
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
+
+
 
 # Step 4: Fitting models to all species pairs (GxG analysis) ----
 # ___________________________________________________________________
@@ -251,16 +295,76 @@ for (i in 1:nrow(species_pairs)) {
            ((Species == species_pairs$Species2[i]) & (SetTemperature == species_pairs$SetTemperature2[i]))) |>
     select(Species, rpoB, mumax, maxOD) |>
     mutate(Species = fct_relevel(factor(Species), species_pairs$Species1[i]))
-  all_fits[["fits"]][["mumax"]][[species_pairs$Pair[i]]] <- brm(mumax ~ rpoB * Species, data = dat)
-  all_fits[["fits"]][["maxOD"]][[species_pairs$Pair[i]]] <- brm(maxOD ~ rpoB * Species, data = dat)
+  all_fits[["fits"]][["mumax"]][[species_pairs$Pair[i]]] <- brm(mumax ~ rpoB * Species, data = dat) |>
+    add_criterion(c("loo", "bayes_R2"), reloo = TRUE)
+  all_fits[["fits"]][["maxOD"]][[species_pairs$Pair[i]]] <- brm(maxOD ~ rpoB * Species, data = dat) |>
+    add_criterion(c("loo", "bayes_R2"), reloo = TRUE)
+  all_fits[["fits_noint"]][["mumax"]][[species_pairs$Pair[i]]] <- brm(mumax ~ rpoB + Species, data = dat) |>
+    add_criterion(c("loo", "bayes_R2"), reloo = TRUE)
+  all_fits[["fits_noint"]][["maxOD"]][[species_pairs$Pair[i]]] <- brm(maxOD ~ rpoB + Species, data = dat) |>
+    add_criterion(c("loo", "bayes_R2"), reloo = TRUE)
 }
 
 all_fits[["legend"]] <- species_pairs
 
 save(all_fits, file = "output/brms_fit_GxG_models.RData")
 
+# comparing the simpler vs. the interactions models:
+load(file = "output/brms_fit_GxG_models.RData")
+
+R2_int_mumax <- list()
+R2_int_maxOD <- list()
+R2_noint_mumax <- list()
+R2_noint_maxOD <- list()
+
+compare_loo_maxOD <- list()
+compare_loo_mumax <- list()
+
+for (i in species_pairs$Pair) {
+  R2_int_mumax[[i]] <- bayes_R2(all_fits[["fits"]][["mumax"]][[i]])
+  R2_int_maxOD[[i]] <- bayes_R2(all_fits[["fits"]][["maxOD"]][[i]])
+  R2_noint_mumax[[i]] <- bayes_R2(all_fits[["fits_noint"]][["mumax"]][[i]])
+  R2_noint_maxOD[[i]] <- bayes_R2(all_fits[["fits_noint"]][["maxOD"]][[i]])
+
+  compare_loo_mumax[[i]] <- loo_compare(all_fits[["fits"]][["mumax"]][[i]], all_fits[["fits_noint"]][["mumax"]][[i]])
+  compare_loo_maxOD[[i]] <- loo_compare(all_fits[["fits"]][["maxOD"]][[i]], all_fits[["fits_noint"]][["maxOD"]][[i]])
+}
+
+# E. coli vs A. baylyi
+# mu_max 
+compare_loo_mumax[["EC_AB"]]
+R2_int_mumax[["EC_AB"]]
+R2_noint_mumax[["EC_AB"]]
+# max_OD 
+compare_loo_maxOD[["EC_AB"]]
+R2_int_maxOD[["EC_AB"]]
+R2_noint_maxOD[["EC_AB"]]
+
+# E. coli vs L. plantarum
+# mu_max 
+compare_loo_mumax[["EC_LP"]]
+R2_int_mumax[["EC_LP"]] 
+R2_noint_mumax[["EC_LP"]]
+# max_OD 
+compare_loo_maxOD[["EC_LP"]]
+R2_int_maxOD[["EC_LP"]]
+R2_noint_maxOD[["EC_LP"]]
+
+# A. baylyi vs L. plantarum
+# mu_max 
+compare_loo_mumax[["AB_LP"]]
+R2_int_mumax[["AB_LP"]]
+R2_noint_mumax[["AB_LP"]]
+# max_OD 
+compare_loo_maxOD[["AB_LP"]]
+R2_int_maxOD[["AB_LP"]]
+R2_noint_maxOD[["AB_LP"]]
+
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
+
+
+
 
 # Step 5: Fitting single model to E. coli & A. baylyi data (GxGxE analysis) ----
 # __________________________________________________________________________________
@@ -291,40 +395,32 @@ GxE_mod <- growth_parms %>%
 maxOD_fit_no3way <- brm(maxOD ~ rpoB*Species + 
              SetTemperature*Species + 
              rpoB*SetTemperature, 
-             data = GxE_mod)
+             data = GxE_mod) |>
+    add_criterion(c("loo", "bayes_R2"), reloo = TRUE)
 summary(maxOD_fit_no3way)
 #plot(maxOD_fit_no3way)
 
 mumax_fit_no3way <- brm(mumax ~ rpoB*Species + 
                                   SetTemperature*Species + 
                                   rpoB*SetTemperature, 
-                        data = GxE_mod)
+                        data = GxE_mod) |>
+    add_criterion(c("loo", "bayes_R2"), reloo = TRUE)
 summary(mumax_fit_no3way)
 #plot(mumax_fit_no3way)
 
 # model fit with 3-way interactions:
 maxOD_fit <- brm(maxOD ~ rpoB*Species*SetTemperature, 
-                 data = GxE_mod)
+                 data = GxE_mod) |>
+    add_criterion(c("loo", "bayes_R2"), reloo = TRUE)
 summary(maxOD_fit)
 #plot(maxOD_fit)
 
 mumax_fit <- brm(mumax ~ rpoB*Species*SetTemperature, 
-                 data = GxE_mod)
+                 data = GxE_mod) |>
+    add_criterion(c("loo", "bayes_R2"), reloo = TRUE)
 summary(mumax_fit)
 #plot(mumax_fit)
 
-# comparing the simpler vs. the 3-way model:
-
-pp_check(mumax_fit_no3way)
-pp_check(mumax_fit)
-
-bridge_no3way <- bridge_sampler(mumax_fit_no3way)
-bridge <- bridge_sampler(mumax_fit)
-bayes_factor(bridge, bridge_no3way)
-
-loo_no3way <- loo(mumax_fit_no3way, moment_match = TRUE)
-loo <- loo(mumax_fit, moment_match = TRUE)
-loo_compare(loo_no3way, loo)
 
 # saving fits
 all_fits <- list(mumax = mumax_fit_no3way,
@@ -334,6 +430,34 @@ save(all_fits, file = "output/brms_fit_GxGxE_model_no3way.RData")
 all_fits <- list(mumax = mumax_fit,
                  maxOD = maxOD_fit)
 save(all_fits, file = "output/brms_fit_GxGxE_model.RData")
+
+# comparing the simpler vs. the 3-way model:
+
+# mu_max
+pp_check(mumax_fit_no3way)
+pp_check(mumax_fit)
+
+bridge_no3way <- bridge_sampler(mumax_fit_no3way)
+bridge <- bridge_sampler(mumax_fit)
+bayes_factor(bridge, bridge_no3way)
+
+loo_no3way <- loo(mumax_fit_no3way, reloo = TRUE)
+loo <- loo(mumax_fit, reloo = TRUE)
+loo_compare(loo_no3way, loo)
+
+bayes_R2(mumax_fit_no3way)
+bayes_R2(mumax_fit)
+
+# max OD
+
+loo_no3way <- loo(maxOD_fit_no3way, reloo = TRUE)
+loo <- loo(maxOD_fit, reloo = TRUE)
+loo_compare(loo_no3way, loo)
+
+bayes_R2(maxOD_fit_no3way)
+bayes_R2(maxOD_fit)
+
+
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
