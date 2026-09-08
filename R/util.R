@@ -227,9 +227,11 @@ extract_comparison <- function(fit_full, fit_reduced, analysis, response, contra
   tibble(
     analysis, response, contrast,
     elpd_diff, se_diff,
-    favoured = case_when(!is.finite(elpd_diff) ~ NA_character_,
-                         elpd_diff > 0         ~ "interaction",
-                         TRUE                  ~ "additive"),
+    favoured = case_when(
+      !is.finite(elpd_diff) ~ NA_character_,
+      abs(elpd_diff) < 4 | abs(elpd_diff) < 2 * se_diff ~ "inconclusive",
+      elpd_diff > 0         ~ "interaction",
+      TRUE                  ~ "additive"),
     R2_additive       = mean(r2r),
     R2_additive_lo    = unname(quantile(r2r, lo)),
     R2_additive_hi    = unname(quantile(r2r, hi)),

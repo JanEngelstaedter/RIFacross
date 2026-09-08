@@ -1,13 +1,13 @@
-% latex table generated in R 4.4.1 by xtable 1.8-8 package
-% Mon Sep  7 23:23:25 2026
+% latex table generated in R 4.5.0 by xtable 1.8-8 package
+% Tue Sep  8 12:40:53 2026
 \begin{table}[ht]
 \centering
 \begingroup\footnotesize
 \begin{tabular}{llrrlrrrrrr}
   \hline
-Model & Contrast & $\Delta$ELPD & $\Delta$se & Favoured & $R^2_{\text{additive}}$ & Q2.5 & Q97.5 & $R^2_{\text{interaction}}$ & Q2.5 & Q97.5 \\ 
+Model & Contrast & $\Delta$ELPD & $\Delta$SE & Favoured & $R^2_{\text{additive}}$ & Q2.5 & Q97.5 & $R^2_{\text{interaction}}$ & Q2.5 & Q97.5 \\ 
   \hline
-mumax $\sim$ GxE & E. coli & -3.040 & 1.950 & additive & 0.895 & 0.878 & 0.906 & 0.895 & 0.875 & 0.908 \\ 
+mumax $\sim$ GxE & E. coli & -3.040 & 1.950 & inconclusive & 0.895 & 0.878 & 0.906 & 0.895 & 0.875 & 0.908 \\ 
   maxOD $\sim$ GxE & E. coli & 85.846 & 13.523 & interaction & 0.613 & 0.533 & 0.673 & 0.920 & 0.906 & 0.930 \\ 
   mumax $\sim$ GxE & A. baylyi & 83.201 & 17.591 & interaction & 0.377 & 0.286 & 0.459 & 0.783 & 0.748 & 0.809 \\ 
   maxOD $\sim$ GxE & A. baylyi & 77.854 & 16.729 & interaction & 0.558 & 0.485 & 0.614 & 0.818 & 0.791 & 0.837 \\ 
@@ -15,13 +15,13 @@ mumax $\sim$ GxE & E. coli & -3.040 & 1.950 & additive & 0.895 & 0.878 & 0.906 &
   maxOD $\sim$ GxG & E. coli / A. baylyi & 23.000 & 8.883 & interaction & 0.903 & 0.893 & 0.910 & 0.924 & 0.917 & 0.929 \\ 
   mumax $\sim$ GxG & E. coli / L. plantarum & 66.284 & 12.424 & interaction & 0.912 & 0.899 & 0.921 & 0.975 & 0.972 & 0.978 \\ 
   maxOD $\sim$ GxG & E. coli / L. plantarum & 27.819 & 8.928 & interaction & 0.955 & 0.950 & 0.958 & 0.975 & 0.971 & 0.977 \\ 
-  mumax $\sim$ GxG & A. baylyi / L. plantarum & 5.399 & 2.992 & interaction & 0.860 & 0.837 & 0.874 & 0.875 & 0.856 & 0.887 \\ 
-  maxOD $\sim$ GxG & A. baylyi / L. plantarum & -1.434 & 1.884 & additive & 0.190 & 0.089 & 0.293 & 0.226 & 0.128 & 0.323 \\ 
+  mumax $\sim$ GxG & A. baylyi / L. plantarum & 5.399 & 2.992 & inconclusive & 0.860 & 0.837 & 0.874 & 0.875 & 0.856 & 0.887 \\ 
+  maxOD $\sim$ GxG & A. baylyi / L. plantarum & -1.434 & 1.884 & inconclusive & 0.190 & 0.089 & 0.293 & 0.226 & 0.128 & 0.323 \\ 
   mumax $\sim$ GxGxE & E. coli / A. baylyi & 80.931 & 20.014 & interaction & 0.893 & 0.882 & 0.901 & 0.935 & 0.928 & 0.939 \\ 
   maxOD $\sim$ GxGxE & E. coli / A. baylyi & 82.947 & 14.105 & interaction & 0.922 & 0.916 & 0.927 & 0.954 & 0.951 & 0.957 \\ 
    \hline
 \end{tabular}
 \endgroup
-\caption{Comparisons between model fits including interaction terms (e.g., maxOD $\sim$ GxE) and the corresponding models without interaction terms (e.g., maxOD $\sim$ G+E). Columns indicate the model and response variable for each species or species pair, the difference in the Expected Log Pointwise Predictive Density (ELPD) between the standard errors (se), which model is favoured through leave-one-out cross validation, as well as the $R^2$ values for both models along with their 95\% credible intervals.} 
+\caption{Comparisons between model fits including interaction terms (e.g., maxOD $\sim$ GxE) and the corresponding models without interaction terms (e.g., maxOD $\sim$ G+E). Columns indicate the model and response variable for each species or species pair, the difference in the Expected Log Pointwise Predictive Density (ELPD) between the standard errors (SE), which model is favoured through leave-one-out cross validation (comparisons with $\vert$ $\Delta$ELPD $\vert$ $<$ 4 or $\vert$ $\Delta$ELPD $\vert$ $<$ 2xSE are reported as inconclusive), as well as the $R^2$ values for both models along with their 95\% credible intervals.} 
 \label{supptab:model_comparisons}
 \end{table}
