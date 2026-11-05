@@ -24,10 +24,10 @@ globsets <- list(
   random_seed = 22,
   cred_int = 0.95)
 
-# Step 1: Loading and processing OD data             ----
+# Step 1: Importing and processing OD data             ----
 # __________________________________________________________
-#input= raw OD data and spec files 
-#output= processed OD data
+# input= raw OD data and spec files 
+# output= processed OD data
 
 projects <- read_csv("./data/global_key.csv")
 dat <- vector(mode = "list", length = nrow(projects))
@@ -97,27 +97,13 @@ all_OD_data <- c(dat, dat_add, list(A_baylyi_Ian_extra = extra))
 
 save(all_OD_data, file = "output/all_OD_data.RData")
 
-# save a reduced version for publication:
-projects <- read_csv("./data/global_key.csv")
-all_OD_data |>
-  bind_rows(.id = "Project_ID") |>
-  mutate(Project_ID = str_replace(Project_ID, "_add", "")) |>
-  mutate(Project_ID = str_replace(Project_ID, "_extra", "")) |>
-  left_join(projects, by = join_by(Project_ID)) |>
-  filter(is.na(RIFconc) | RIFconc < 1e-9) |>
-  filter(WellType != "EMPTY") |>
-  select(Species, Plate:OD) |>
-  select(-RIFconc, -Date, -Time_min, -Row, -Column, -PlateReader, -SetTemperature) |>
-  mutate(Time_h = sprintf("%.4f", Time_h)) |>
-  write_csv("output/all_OD_data.csv")
-
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
 # Step 2: Analysing OD data                             ----
 # __________________________________________________________
-#input= project metadata, processed OD data, genetic data
-#output= file with all estimated growth parameters
+# input= project metadata, processed OD data, genetic data
+# output= file with all estimated growth parameters
 
 projects <- read_csv("./data/global_key.csv")
 load(file = "output/all_OD_data.RData")
@@ -193,8 +179,8 @@ rm.all.but("globsets")
 
 # Step 3: Fitting separate models to E. coli and A. baylyi (GxE analysis) ----
 # ________________________________________________________________________________
-#input= combined_parms_absence_antibiotics.csv
-#output= brms_fit_GxE_models.RData containing four brms fits
+# input= combined_parms_absence_antibiotics.csv
+#o utput= brms_fit_GxE_models.RData containing four brms fits
 
 growth_parms <- read_csv("./output/growth_parameters_easylinear_h20.csv") |>
   filter(Species != "Lactiplantibacillus plantarum") |>
@@ -271,8 +257,8 @@ rm.all.but("globsets")
 
 # Step 4: Fitting models to all species pairs (GxG analysis) ----
 # ___________________________________________________________________
-#input=  combined_parms_absence_antibiotics.csv
-#output= brms_fit_GxG_models.RData, containing six brms fits
+# input=  combined_parms_absence_antibiotics.csv
+# output= brms_fit_GxG_models.RData, containing six brms fits
 
 growth_parms <- read_csv("./output/growth_parameters_easylinear_h20.csv") |>
   mutate(rpoB = fct_relevel(factor(rpoB), "WT"))
@@ -369,8 +355,8 @@ rm.all.but("globsets")
 
 # Step 5: Fitting single model to E. coli & A. baylyi data (GxGxE analysis) ----
 # __________________________________________________________________________________
-#input=  combined_parms_absence_antibiotics.csv
-#output= brms_fit_GxGxE_model.RData containing two brms fits
+# input=  combined_parms_absence_antibiotics.csv
+# output= brms_fit_GxGxE_model.RData containing two brms fits
 
 growth_parms <-  read_csv("./output/growth_parameters_easylinear_h20.csv" )
 
@@ -460,59 +446,10 @@ bayes_R2(all_fits_noint[["maxOD"]])
 bayes_R2(all_fits[["maxOD"]])
 
 
-
-#empty working environment to keep everything clean:
-rm.all.but("globsets")
-
-# Step 6: GxG analysis as in Step 4 but assuming lethality of unobserved mutants ----
+# Step 6: Model comparisons ----
 # ___________________________________________________________________
-#input=  combined_parms_absence_antibiotics.csv
-#output= brms_fit_GxG_models.RData, containing six brms fits
-
-growth_parms <- read_csv("./output/growth_parameters_easylinear_h20.csv") |>
-  mutate(rpoB = fct_relevel(factor(rpoB), "WT"))
-
-species_pairs <- tibble(Pair = c("EC_AB", "EC_LP", "AB_LP"),
-                            Species1 = c(rep("Escherichia coli", 2), "Acinetobacter baylyi"),
-                            Species2 = c("Acinetobacter baylyi", rep("Lactiplantibacillus plantarum", 2)),
-                            SetTemperature1 = c("37", "37", "30"),
-                            SetTemperature2 = c("30", "30", "30"),
-                            excluded_muts = list(c("dup1611", "V146F", "L511P", "L511S", "S531F", "S531L", "L533S", "L533W", "S574L"),
-                                                  c("146F", "146G", "509P", "509R", "511P", "512F", "518D", "522D", "522F", "533W", "574L", "574R"),
-                                                  c("146F", "146G", "509P", "509R", "512F", "522D", "522F", "531F", "531L", "531Y", "533P", "534C", "534E", "574R"))
-                            )
-
-
-all_fits <- c()
-
-for (i in 1:nrow(species_pairs)) {
-  dat <- growth_parms |>
-    filter(((Species == species_pairs$Species1[i]) & (SetTemperature == species_pairs$SetTemperature1[i])) |
-             ((Species == species_pairs$Species2[i]) & (SetTemperature == species_pairs$SetTemperature2[i]))) |>
-    filter(!(rpoB %in% species_pairs$excluded_muts[[i]])) |>
-    select(Species, rpoB, mumax, maxOD) |>
-    mutate(rpoB = fct_drop(rpoB)) |>
-    group_by(Species, rpoB) |>
-    mutate(id = row_number()) |>
-    ungroup() |>
-    complete(Species, nesting(rpoB, id),
-             fill = list(maxOD = 0, mumax = 0)) |>
-    mutate(Species = fct_relevel(factor(Species), species_pairs$Species1[i]))
-  all_fits[["fits"]][["mumax"]][[species_pairs$Pair[i]]] <- brm(mumax ~ rpoB * Species, data = dat)
-  all_fits[["fits"]][["maxOD"]][[species_pairs$Pair[i]]] <- brm(maxOD ~ rpoB * Species, data = dat)
-}
-
-all_fits[["legend"]] <- species_pairs
-
-save(all_fits, file = "output/brms_fit_GxG_models_lethality.RData")
-
-#empty working environment to keep everything clean:
-rm.all.but("globsets")
-
-# Step 7: Model comparisons ----
-# ___________________________________________________________________
-#input=  combined_parms_absence_antibiotics.csv
-#output= brms_fit_GxG_models.RData, containing six brms fits
+# input=  combined_parms_absence_antibiotics.csv
+# output= brms_fit_GxG_models.RData, containing six brms fits
 
 lo <- (1 - globsets$cred_int) / 2
 hi <- 1 - lo
@@ -613,22 +550,8 @@ pA <- ggplot(data_plot) +
            parse = TRUE, 
            size = 5,
            col = c(rep("black", 4), "grey")) +
-  # geom_segment(aes(x = 2.2, y = 0, xend = 2.2, yend = W1),
-  #              arrow = arrow(length = unit(0.2, "cm"), type = "closed")) +
-  # geom_segment(aes(x = 2.3, y = W1, xend = 2.3, yend = W2),
-  #              arrow = arrow(length = unit(0.2, "cm"), type = "closed")) +
-  # geom_segment(aes(x = 2.4, y = W1, xend = 2.4, yend = M1),
-  #              arrow = arrow(length = unit(0.2, "cm"), type = "closed")) +
-  # geom_segment(aes(x = 2.5, y = W2 - W1 + M1, xend = 2.5, yend = M2),
-  #              arrow = arrow(length = unit(0.2, "cm"), type = "closed")) +
-  # annotate("text", x = 2.2, y = 1.06, label = label_a, parse = TRUE, size = 3) +
-  # annotate("text", x = 2.3, y = 1.06, label = label_b2, parse = TRUE, size = 3) +
-  # annotate("text", x = 2.4, y = 1.06, label = label_bM, parse = TRUE, size = 3) +
-  # annotate("text", x = 2.53, y = 1.06, label = label_bM2, parse = TRUE, size = 3) +
   labs(x = "Genotype", y = "Trait") +
   plot_theme
-
-pA
 
 pA_legend <- ggplot(data_plot) +
   scale_x_continuous(labels = NULL, limits = c(0.9, 5)) +
@@ -694,8 +617,8 @@ rm.all.but("globsets")
 
 # Fig 2: Epistasis scatterplots               ----
 # __________________________________________________________
-#input=  Bayesian relative parameters
-#output= 
+# input=  Bayesian relative parameters
+# output= Fig2_GxG_speciespairfits.png
 
 set.seed(globsets$random_seed)
 
@@ -758,8 +681,8 @@ rm.all.but("globsets")
 
 # Fig 3: GxE scatterplots ----
 # __________________________________________________________
-#input=  Bayesian model fits
-#output= GxE figure
+# input=  Bayesian model fits
+# output= GxE figure
 
 set.seed(globsets$random_seed)
 
@@ -816,8 +739,8 @@ rm.all.but("globsets")
 
 # Fig 4: posterior distributions for single fit ----
 # __________________________________________________________
-#input=  Bayesian relative parameters
-#output= GxE graphs 
+# input=  Bayesian relative parameters
+# output= GxE graphs 
 
 # fits without 3-way interactions:
 load("output/brms_fit_GxGxE_model_no3way.RData")
@@ -847,8 +770,8 @@ rm.all.but("globsets")
 
 # SupFig 1: fitness boxplots for all species and temperatures ----
 # ________________________________________________________________
-#input=  growth_parameters_h20.csv, parameters from MIC assay
-#output= boxplots of species and mutants' fitness
+# input=  growth_parameters_h20.csv, parameters from MIC assay
+# output= boxplots of species and mutants' fitness
 
 set.seed(globsets$random_seed)
 
@@ -928,8 +851,8 @@ rm.all.but("globsets")
 
 # Fig S2: posterior distributions for GxG fits assuming lethality of unobserved mutants----
 # __________________________________________________________
-#input=  Bayesian relative parameters
-#output= GxG graphs 
+# input=  Bayesian relative parameters
+# output= GxG graphs 
 
 set.seed(globsets$random_seed)
 
@@ -987,26 +910,6 @@ fig <- fig + plot_layout(guides = "collect") +
 
 ggsave(fig, filename = "./plots/Fig2_GxG_speciespairfits_lethality.png",  width = 15, height = 10)
 
-
-
-# Figure for talk: OD through-time                       ----
-# __________________________________________________________
-
-projects <- read_csv("./data/global_key.csv")
-load(file = "output/all_OD_data.RData")
-
-dat_plot <- all_OD_data$E_coli_Alicia |>
-  filter(WellType == "DATA", RIFconc == 0, SetTemperature == 37) |>
-  filter(Strain %in% c("R14", "R8", "R19"))
-
-p <- ggplot(dat_plot) +
-  geom_line(aes(x = Time_h, y = blankedOD, col = Strain, group = interaction(Strain, Plate, SetTemperature))) +
-  theme_bw() +
-  labs(x = "Time [h]", y = "Optical density") +
-  theme(legend.position = "none")
-
-ggsave("plots/OD_through_time.pdf", height = 3, width = 4)  
-  
 # Table of all mutants                                  ----
 # __________________________________________________________
 
