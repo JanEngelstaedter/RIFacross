@@ -781,6 +781,15 @@ parms <- read_csv("./output/growth_parameters_easylinear_h20.csv") |>
   mutate(rpoB = fct_relevel(rpoB, "WT")) |>
   select(Species, SetTemperature, rpoB, mumax, maxOD)
 
+# select only mutations found in >=2 species:
+overlapping_muts <- parms |>
+  distinct(Species, rpoB) |>
+  count(rpoB) |>
+  filter(n >= 2) |>
+  pull(rpoB)
+
+parms <- filter(parms, rpoB %in% overlapping_muts)
+
 cols <- c("30" = "#3B9AB2", "37" = "black")
 
 p_mumax <- c()
@@ -828,7 +837,7 @@ for(species in unique(parms$Species)[c(2, 1, 3)]) {
           axis.title.y = element_text(size = 18),
           axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,  size = 10)) +
     guides(col=guide_legend(title = "Temperature")) +
-    coord_cartesian(ylim=c(0.3, 1.15))
+    coord_cartesian(ylim=c(0, 1.15))
   
   if (species == "Escherichia coli") {
     p_maxOD[[species]] <- p_maxOD[[species]] +
@@ -853,8 +862,16 @@ rm.all.but("globsets")
 # Table of all mutants                                  ----
 # __________________________________________________________
 
+# identify mutations found in >=2 species:
+overlapping_muts <- read_csv("./output/growth_parameters_easylinear_h20.csv" ) |>
+  distinct(Species, rpoB) |>
+  count(rpoB) |>
+  filter(n >= 2) |>
+  pull(rpoB)
+
 read_csv("./output/growth_parameters_easylinear_h20.csv" ) |>
-  distinct(Species, rpoB, AA_mut_name, AA_mut_name_Ecoli) |>
+  filter(rpoB %in% overlapping_muts) |>
+  distinct(Species, rpoB, AA_mut_name, AA_mut_name_Ecoli)  |>
   mutate(Species = abbreviate_species_name(Species)) |>
   filter(rpoB != "WT") |>
   mutate(AA_mut_name = str_replace(AA_mut_name, "rpoB_", "")) |>
@@ -862,9 +879,6 @@ read_csv("./output/growth_parameters_easylinear_h20.csv" ) |>
   mutate(Position = str_extract(AA_mut_name_Ecoli, "\\d+")) |>
   mutate(Mutation = str_replace(AA_mut_name, "^([A-Za-z])\\d+([A-Za-z])$", "\\1 → \\2")) |>
   select(-AA_mut_name) |>
-  mutate(AA_pos = if_else(rpoB == "dup1611", "538", AA_pos)) |>
-  mutate(Mutation = if_else(rpoB == "dup1611", "dup", Mutation)) |>
-  mutate(Position = if_else(rpoB == "dup1611", "531", Position)) |>
   pivot_wider(names_from = Species, values_from = AA_pos) |>
   select(Position, Mutation, "E. coli", "A. baylyi", "L. plantarum") |>
   arrange(Position) |>
