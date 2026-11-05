@@ -849,66 +849,6 @@ ggsave(SupFig1, filename = "./plots/SupFig1_boxplots.pdf", width=15 , height= 8)
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
 
-# Fig S2: posterior distributions for GxG fits assuming lethality of unobserved mutants----
-# __________________________________________________________
-# input=  Bayesian relative parameters
-# output= GxG graphs 
-
-set.seed(globsets$random_seed)
-
-load("output/brms_fit_GxG_models_lethality.RData")
-variables <- names(all_fits$fits)
-pairs <- names(all_fits$fits[["mumax"]])
-species_pairs <- all_fits$legend
-p <- c()
-
-species_abbr <- c("Escherichia coli" = "E. coli",
-                  "Acinetobacter baylyi" = "A. baylyi",
-                  "Lactiplantibacillus plantarum" = "L. plantarum")
-
-for(i in 1:length(variables)) {
-  for(j in 1:length(all_fits$fits[[i]])) {
-    if (variables[i] == "mumax") {
-      xlab <- bquote(mu[max] * "(" * italic(.(species_abbr[species_pairs$Species1[j]])) * ")")
-      ylab <- bquote(mu[max] * "(" * italic(.(species_abbr[species_pairs$Species2[j]])) * ")")
-    } else if (variables[i] == "maxOD") {
-      xlab <- bquote("maxOD(" * italic(.(species_abbr[species_pairs$Species1[j]])) * ")")
-      ylab <- bquote("maxOD(" * italic(.(species_abbr[species_pairs$Species2[j]])) * ")")
-    }
-    
-    fit <- all_fits$fits[[variables[i]]][[species_pairs$Pair[j]]]
-    newdata <- expand_grid(Species = levels(fit$data$Species),
-                           rpoB = levels(fit$data$rpoB))
-    post_preds <- fit |>
-      epred_draws(newdata = newdata) |>
-      group_by(across(all_of(colnames(newdata)))) |>
-      mean_hdi(.epred, .width = globsets$cred_int)
-    
-    post_pred_1 <- post_preds |>
-      filter(Species == species_pairs$Species1[j]) |>
-      select(rpoB, .epred, .lower, .upper) |>
-      rename(mean = .epred, hdi_lower = .lower, hdi_upper = .upper)
-    
-    post_pred_2 <- post_preds |>
-      filter(Species == species_pairs$Species2[j]) |>
-      select(rpoB, .epred, .lower, .upper) |>
-      rename(mean = .epred, hdi_lower = .lower, hdi_upper = .upper)
-    
-    p[[variables[i]]][[species_pairs$Pair[j]]] <- plot_epistasis_abspars(post_pred_1, 
-                                                                         post_pred_2,
-                                                                         xlab, ylab,
-                                                                         leglab = "Epistasis")
-  }
-}
-
-fig <- (p[["mumax"]][["EC_AB"]] + p[["mumax"]][["EC_LP"]] + p[["mumax"]][["AB_LP"]])/
-  (p[["maxOD"]][["EC_AB"]] + p[["maxOD"]][["EC_LP"]] + p[["maxOD"]][["AB_LP"]])
-fig <- fig + plot_layout(guides = "collect") + 
-  plot_annotation(tag_levels = 'A')& 
-  theme(plot.tag = element_text(size = 14),
-        legend.position = "bottom")
-
-ggsave(fig, filename = "./plots/Fig2_GxG_speciespairfits_lethality.png",  width = 15, height = 10)
 
 # Table of all mutants                                  ----
 # __________________________________________________________
