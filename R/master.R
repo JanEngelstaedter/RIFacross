@@ -26,6 +26,11 @@ globsets <- list(
   random_seed = 22,
   cred_int = 0.95)
 
+# create output folders if they don't exist yet:
+for (folder in c("output", "plots", "tables")) {
+  if (!dir.exists(here(folder))) dir.create(here(folder))
+}
+
 # Step 1: Importing and processing OD data             ----
 # __________________________________________________________
 # input= raw OD data and spec files 
