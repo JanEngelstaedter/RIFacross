@@ -1020,3 +1020,9 @@ ggplot(growth_parms_both) +
   geom_point(aes(x = mumax_easylinear, y = mumax_spline), col = "blue", alpha = 0.2) +
   theme_bw()
 cor(growth_parms_both$mumax_easylinear, growth_parms_both$mumax_spline)
+
+# Session info                                          ----
+# __________________________________________________________
+# record R and package versions used to produce all outputs:
+
+writeLines(capture.output(sessionInfo()), here("output", "sessionInfo.txt"))
