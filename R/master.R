@@ -1,6 +1,8 @@
 # Step 0: Loading all libraries and scripts             ----
 # __________________________________________________________
 
+here::i_am("R/master.R")
+library(here)
 library(tidyverse)
 library(grow96)
 library(varhandle)
@@ -16,8 +18,8 @@ library(bridgesampling)
 library(loo)
 library(bayesplot)
 
-source("./R/plotting.R")
-source("./R/util.R")
+source(here("R", "plotting.R"))
+source(here("R", "util.R"))
 
 globsets <- list(
   h = 20, # parameter for easylinear
@@ -29,14 +31,14 @@ globsets <- list(
 # input= raw OD data and spec files 
 # output= processed OD data
 
-projects <- read_csv("./data/global_key.csv")
+projects <- read_csv(here("data", "global_key.csv"))
 dat <- vector(mode = "list", length = nrow(projects))
 names(dat) <- projects$Project_ID
 
 for(i in 1:nrow(projects)) {
   # wrangling:
-  dat[[i]] <- processODData(specPath = paste0("./data/", projects$Project_ID[i], "/specs/"),
-                            dataPath = paste0("./data/", projects$Project_ID[i], "/OD_raw"))
+  dat[[i]] <- processODData(specPath = here("data", projects$Project_ID[i], "specs"),
+                            dataPath = here("data", projects$Project_ID[i], "OD_raw"))
   if(projects$Project_ID[i] == "A_baylyi_Ian") {
     dat[[i]] <- dplyr::rename(dat[[i]], RIFconc = Concentration)  
   }
@@ -67,14 +69,14 @@ for(i in 1:nrow(projects)) {
 }
 
 # additional data:
-projects <- read_csv("./data/global_key.csv") |>
+projects <- read_csv(here("data", "global_key.csv")) |>
   filter(Project_ID == "A_baylyi_Ian" | Project_ID == "E_coli_Alicia")
 dat_add <- vector(mode = "list", length = nrow(projects))
 names(dat_add) <- paste0(projects$Project_ID, "_add")
 
 for(i in 1:nrow(projects)) {
-  dat_add[[i]] <- processODData(specPath = paste0("./data/", projects$Project_ID[i], "/specs_temp/"),
-                            dataPath = paste0("./data/", projects$Project_ID[i], "/OD_temp"))
+  dat_add[[i]] <- processODData(specPath = here("data", projects$Project_ID[i], "specs_temp"),
+                            dataPath = here("data", projects$Project_ID[i], "OD_temp"))
   dat_add[[i]] <- dat_add[[i]] |>
     blankODs(groups = "Strain") 
   dat_add[[i]] <- dat_add[[i]] |>
@@ -82,8 +84,8 @@ for(i in 1:nrow(projects)) {
 }
 
 #add the last replicate of A. baylyi
-extra <- processODData(specPath = "./data/A_baylyi_Ian/specs_temp", 
-                       dataPath = "./data/A_baylyi_Ian/OD_temp", 
+extra <- processODData(specPath = here("data", "A_baylyi_Ian", "specs_temp"), 
+                       dataPath = here("data", "A_baylyi_Ian", "OD_temp"), 
                        filePrefix = "extra_") %>% 
   blankODs(groups = "ONCtemp") %>% 
   filter(ONCtemp == "37") %>% 
@@ -95,7 +97,7 @@ extra <- processODData(specPath = "./data/A_baylyi_Ian/specs_temp",
 # merge all data into single object and save it:
 all_OD_data <- c(dat, dat_add, list(A_baylyi_Ian_extra = extra))
 
-save(all_OD_data, file = "output/all_OD_data.RData")
+save(all_OD_data, file = here("output", "all_OD_data.RData"))
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
@@ -105,9 +107,9 @@ rm.all.but("globsets")
 # input= project metadata, processed OD data, genetic data
 # output= file with all estimated growth parameters
 
-projects <- read_csv("./data/global_key.csv")
-load(file = "output/all_OD_data.RData")
-muts <- read_csv("./data/Genetic_data/muts.csv")
+projects <- read_csv(here("data", "global_key.csv"))
+load(file = here("output", "all_OD_data.RData"))
+muts <- read_csv(here("data", "Genetic_data", "muts.csv"))
 
 # merge all tables into single one and analyse:
 OD_data_filtered <- all_OD_data |>
@@ -147,7 +149,7 @@ growth_parms <- growth_parms |>
   mutate(rpoB = if_else(Strain == "WT", "WT", rpoB)) |>
   arrange(Species, Strain, Replicate)
 
-write_csv(growth_parms, file = "output/growth_parameters_easylinear_h20.csv")
+write_csv(growth_parms, file = here("output", "growth_parameters_easylinear_h20.csv"))
 
 # same with spline-fitted growth parameters:
 growth_parms_spline <- analyseODData(OD_data_filtered, method = "spline", tmin = 1, df = 20)$pars |> as_tibble()
@@ -171,7 +173,7 @@ growth_parms_spline <- growth_parms_spline |>
   mutate(rpoB = if_else(Strain == "WT", "WT", rpoB)) |>
   arrange(Species, Strain, Replicate)
 
-write_csv(growth_parms_spline, file = "output/growth_parameters_spline.csv")
+write_csv(growth_parms_spline, file = here("output", "growth_parameters_spline.csv"))
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
@@ -182,7 +184,7 @@ rm.all.but("globsets")
 # input= combined_parms_absence_antibiotics.csv
 #o utput= brms_fit_GxE_models.RData containing four brms fits
 
-growth_parms <- read_csv("./output/growth_parameters_easylinear_h20.csv") |>
+growth_parms <- read_csv(here("output", "growth_parameters_easylinear_h20.csv")) |>
   filter(Species != "Lactiplantibacillus plantarum") |>
   mutate(Species = fct_relevel(factor(Species), "Escherichia coli")) |>
   mutate(SetTemperature = fct_relevel(factor(SetTemperature), "37")) |>
@@ -208,7 +210,7 @@ for (i in 1:length(species)) {
     add_criterion(c("loo", "bayes_R2"), reloo = TRUE)
 }
 
-save(all_fits, file = "output/brms_fit_GxE_models.RData")
+save(all_fits, file = here("output", "brms_fit_GxE_models.RData"))
 
 all_fits_noint <- c()
 
@@ -222,11 +224,11 @@ for (i in 1:length(species)) {
     add_criterion(c("loo", "bayes_R2"), reloo = TRUE)
 }
 
-save(all_fits_noint, file = "output/brms_fit_GplusE_models.RData")
+save(all_fits_noint, file = here("output", "brms_fit_GplusE_models.RData"))
 
 # comparing the simpler vs. the interactions models:
-load(file = "output/brms_fit_GplusE_models.RData")
-load(file = "output/brms_fit_GxE_models.RData")
+load(file = here("output", "brms_fit_GplusE_models.RData"))
+load(file = here("output", "brms_fit_GxE_models.RData"))
 
 # E. coli
 # mu_max 
@@ -260,7 +262,7 @@ rm.all.but("globsets")
 # input=  combined_parms_absence_antibiotics.csv
 # output= brms_fit_GxG_models.RData, containing six brms fits
 
-growth_parms <- read_csv("./output/growth_parameters_easylinear_h20.csv") |>
+growth_parms <- read_csv(here("output", "growth_parameters_easylinear_h20.csv")) |>
   mutate(rpoB = fct_relevel(factor(rpoB), "WT"))
 
 species_pairs <- data.frame(Pair = c("EC_AB", "EC_LP", "AB_LP"),
@@ -293,10 +295,10 @@ for (i in 1:nrow(species_pairs)) {
 
 all_fits[["legend"]] <- species_pairs
 
-save(all_fits, file = "output/brms_fit_GxG_models.RData")
+save(all_fits, file = here("output", "brms_fit_GxG_models.RData"))
 
 # comparing the simpler vs. the interactions models:
-load(file = "output/brms_fit_GxG_models.RData")
+load(file = here("output", "brms_fit_GxG_models.RData"))
 Pair = c("EC_AB", "EC_LP", "AB_LP")
 
 R2_int_mumax <- list()
@@ -358,7 +360,7 @@ rm.all.but("globsets")
 # input=  combined_parms_absence_antibiotics.csv
 # output= brms_fit_GxGxE_model.RData containing two brms fits
 
-growth_parms <-  read_csv("./output/growth_parameters_easylinear_h20.csv" )
+growth_parms <-  read_csv(here("output", "growth_parameters_easylinear_h20.csv"))
 
 #find overlapping mutations 
 overlapping <- growth_parms %>% 
@@ -416,15 +418,15 @@ summary(mumax_fit)
 # saving fits
 all_fits <- list(mumax = mumax_fit_no3way,
                  maxOD = maxOD_fit_no3way)
-save(all_fits, file = "output/brms_fit_GxGxE_model_no3way.RData")
+save(all_fits, file = here("output", "brms_fit_GxGxE_model_no3way.RData"))
 
 all_fits <- list(mumax = mumax_fit,
                  maxOD = maxOD_fit)
-save(all_fits, file = "output/brms_fit_GxGxE_model.RData")
+save(all_fits, file = here("output", "brms_fit_GxGxE_model.RData"))
 
 # comparing the simpler vs. the 3-way model:
-all_fits_noint <- get(load(file = "output/brms_fit_GxGxE_model_no3way.RData"))
-all_fits <- get(load(file = "output/brms_fit_GxGxE_model.RData"))
+all_fits_noint <- get(load(file = here("output", "brms_fit_GxGxE_model_no3way.RData")))
+all_fits <- get(load(file = here("output", "brms_fit_GxGxE_model.RData")))
 
 # mu_max
 
@@ -455,11 +457,11 @@ lo <- (1 - globsets$cred_int) / 2
 hi <- 1 - lo
 
 # load all fit objects:
-ge    <- get(load("output/brms_fit_GxE_models.RData"))          # interaction
-gen   <- get(load("output/brms_fit_GplusE_models.RData"))       # additive
-gg    <- get(load("output/brms_fit_GxG_models.RData"))          # $fits / $fits_noint / $legend
-gxe3  <- get(load("output/brms_fit_GxGxE_model.RData"))         # $mumax / $maxOD  (3-way)
-gxe3n <- get(load("output/brms_fit_GxGxE_model_no3way.RData"))  # $mumax / $maxOD  (no 3-way)
+ge    <- get(load(here("output", "brms_fit_GxE_models.RData")))          # interaction
+gen   <- get(load(here("output", "brms_fit_GplusE_models.RData")))       # additive
+gg    <- get(load(here("output", "brms_fit_GxG_models.RData")))          # $fits / $fits_noint / $legend
+gxe3  <- get(load(here("output", "brms_fit_GxGxE_model.RData")))         # $mumax / $maxOD  (3-way)
+gxe3n <- get(load(here("output", "brms_fit_GxGxE_model_no3way.RData")))  # $mumax / $maxOD  (no 3-way)
 
 # build the raw comparison table:
 comparison_table <- bind_rows(
@@ -493,7 +495,7 @@ pretty_contrast <- c(
 comparison_table <- comparison_table |>
   mutate(contrast = coalesce(pretty_contrast[contrast], contrast))
 
-write_csv(comparison_table, "output/model_comparison.csv")
+write_csv(comparison_table, here("output", "model_comparison.csv"))
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
@@ -609,7 +611,7 @@ pB <- plot_epistasis_bg(W1, W2, 0, 1.2, 0, 1.2) +
 p <- (pA + labs(tag = "A")) + pA_legend + (pB + labs(tag = "B")) +
   plot_layout(widths = c(1, 0.21, 1))
 
-ggsave("plots/Fig1_explainer.png", plot = p, height = 5, width = 9.6)
+ggsave(here("plots", "Fig1_explainer.png"), plot = p, height = 5, width = 9.6)
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
@@ -622,7 +624,7 @@ rm.all.but("globsets")
 
 set.seed(globsets$random_seed)
 
-load("output/brms_fit_GxG_models.RData")
+load(here("output", "brms_fit_GxG_models.RData"))
 variables <- names(all_fits$fits)
 pairs <- names(all_fits$fits[["mumax"]])
 species_pairs <- all_fits$legend
@@ -674,7 +676,7 @@ fig <- fig + plot_layout(guides = "collect") +
   theme(plot.tag = element_text(size = 14),
         legend.position = "bottom")
 
-ggsave(fig, filename = "./plots/Fig2_GxG_speciespairfits.png",  width = 15, height = 10)
+ggsave(fig, filename = here("plots", "Fig2_GxG_speciespairfits.png"),  width = 15, height = 10)
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
@@ -686,7 +688,7 @@ rm.all.but("globsets")
 
 set.seed(globsets$random_seed)
 
-load("output/brms_fit_GxE_models.RData")
+load(here("output", "brms_fit_GxE_models.RData"))
 variables <- names(all_fits)
 species <- names(all_fits[["mumax"]])
 p <- c()
@@ -731,7 +733,7 @@ fig <- fig + plot_layout(guides = "collect") +
   theme(plot.tag = element_text(size = 14),
         legend.position = "bottom")
 
-ggsave(fig, filename = "./plots/Fig3_GxE_speciesfits.png",  width = 10, height = 10)
+ggsave(fig, filename = here("plots", "Fig3_GxE_speciesfits.png"),  width = 10, height = 10)
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
@@ -743,7 +745,7 @@ rm.all.but("globsets")
 # output= GxE graphs 
 
 # fits without 3-way interactions:
-load("output/brms_fit_GxGxE_model_no3way.RData")
+load(here("output", "brms_fit_GxGxE_model_no3way.RData"))
 
 p_mumax <- plot_posteriors(all_fits$mumax)
 p_maxOD <- plot_posteriors(all_fits$maxOD)
@@ -751,11 +753,11 @@ p_maxOD <- plot_posteriors(all_fits$maxOD)
 p <- (p_mumax | p_maxOD) + 
   plot_annotation(tag_levels = 'A')
 
-ggsave("plots/GxGxE_no3way.pdf", p, width = 12, height = 8)
+ggsave(here("plots", "GxGxE_no3way.pdf"), p, width = 12, height = 8)
 
 
 # fits with 3-way interactions:
-load("output/brms_fit_GxGxE_model.RData")
+load(here("output", "brms_fit_GxGxE_model.RData"))
 
 p_mumax <- plot_posteriors(all_fits$mumax)
 p_maxOD <- plot_posteriors(all_fits$maxOD)
@@ -763,7 +765,7 @@ p_maxOD <- plot_posteriors(all_fits$maxOD)
 p <- (p_mumax | p_maxOD) + 
   plot_annotation(tag_levels = 'A')
 
-ggsave("plots/Fig4_GxGxE.pdf", p, width = 10, height = 8)
+ggsave(here("plots", "Fig4_GxGxE.pdf"), p, width = 10, height = 8)
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
@@ -775,7 +777,7 @@ rm.all.but("globsets")
 
 set.seed(globsets$random_seed)
 
-parms <- read_csv("./output/growth_parameters_easylinear_h20.csv") |>
+parms <- read_csv(here("output", "growth_parameters_easylinear_h20.csv")) |>
   mutate(SetTemperature = fct_relevel(factor(SetTemperature), "30")) |>
   mutate(rpoB = fct_reorder(factor(rpoB), AA_pos, .na_rm = FALSE)) |>
   mutate(rpoB = fct_relevel(rpoB, "WT")) |>
@@ -853,7 +855,7 @@ SupFig1 <- p_mumax[["Escherichia coli"]] + p_mumax[["Acinetobacter baylyi"]] + p
   plot_layout(nrow = 2, widths = c(20, 20, 15.5), guides = "collect") &
   theme(legend.position = "bottom")
 
-ggsave(SupFig1, filename = "./plots/SupFig1_boxplots.pdf", width=15 , height= 8)
+ggsave(SupFig1, filename = here("plots", "SupFig1_boxplots.pdf"), width=15 , height= 8)
 
 #empty working environment to keep everything clean:
 rm.all.but("globsets")
@@ -863,13 +865,13 @@ rm.all.but("globsets")
 # __________________________________________________________
 
 # identify mutations found in >=2 species:
-overlapping_muts <- read_csv("./output/growth_parameters_easylinear_h20.csv" ) |>
+overlapping_muts <- read_csv(here("output", "growth_parameters_easylinear_h20.csv")) |>
   distinct(Species, rpoB) |>
   count(rpoB) |>
   filter(n >= 2) |>
   pull(rpoB)
 
-read_csv("./output/growth_parameters_easylinear_h20.csv" ) |>
+read_csv(here("output", "growth_parameters_easylinear_h20.csv")) |>
   filter(rpoB %in% overlapping_muts) |>
   distinct(Species, rpoB, AA_mut_name, AA_mut_name_Ecoli)  |>
   mutate(Species = abbreviate_species_name(Species)) |>
@@ -887,7 +889,7 @@ read_csv("./output/growth_parameters_easylinear_h20.csv" ) |>
          The remaining columns show the mutations used in this study, with numbers indicating the amino acid positions in the three focal species. 
          Mutations shown in the same row are homologues.",
          label = "tab:mutations") |>
-  print(type = "latex", file = "tables/mutations.tex", include.rownames = FALSE, floating = TRUE,
+  print(type = "latex", file = here("tables", "mutations.tex"), include.rownames = FALSE, floating = TRUE,
         table.placement = "H",
         size = "\\small\\renewcommand{\\arraystretch}{0.8}")
 
@@ -897,7 +899,7 @@ read_csv("./output/growth_parameters_easylinear_h20.csv" ) |>
 
 # GxE models:
 all_tables <- NULL
-load("output/brms_fit_GxE_models.RData")
+load(here("output", "brms_fit_GxE_models.RData"))
 vars <- names(all_fits)
 for(v in vars) {
   models <- names(all_fits[[v]])
@@ -915,7 +917,7 @@ for(v in vars) {
 }
 
 # GxG models:
-load("output/brms_fit_GxG_models.RData")
+load(here("output", "brms_fit_GxG_models.RData"))
 vars <- names(all_fits$fits)
 for(v in vars) {
   models <- names(all_fits$fits[[v]])
@@ -933,7 +935,7 @@ for(v in vars) {
 }
 
 # GxGxE models:
-load("output/brms_fit_GxGxE_model.RData")
+load(here("output", "brms_fit_GxGxE_model.RData"))
 vars <- names(all_fits)
 for(v in vars) {
   all_tables <- brms::posterior_summary(all_fits[[v]], 
@@ -947,7 +949,7 @@ for(v in vars) {
     c(all_tables, rep("", 3), .)
 }
 
-load("output/brms_fit_GxGxE_model_no3way.RData")
+load(here("output", "brms_fit_GxGxE_model_no3way.RData"))
 vars <- names(all_fits)
 for(v in vars) {
   all_tables <- brms::posterior_summary(all_fits[[v]], 
@@ -964,13 +966,13 @@ for(v in vars) {
 # polish and save as .tex file:
 all_tables |>
   polish_posterior_tables() |>
-  writeLines("tables/all_supp_tables.tex")
+  writeLines(here("tables", "all_supp_tables.tex"))
 
 
 # Table for model comparisons                          ----
 # __________________________________________________________
 
-tab <- read_csv("output/model_comparison.csv") 
+tab <- read_csv(here("output", "model_comparison.csv")) 
 tab |>
   mutate(Model = paste0(response, " TILDE ", analysis)) |>
   select(-analysis, -response) |>
@@ -992,15 +994,15 @@ tab |>
   str_replace_all("R2\\\\_additive", "$R\\^2_{\\\\text{additive}}$") |>
   str_replace_all("R2\\\\_interaction", "$R\\^2_{\\\\text{interaction}}$") |>
   str_replace_all("TILDE", "$\\\\sim$") |>
-  writeLines("tables/comparison_table.tex")
+  writeLines(here("tables", "comparison_table.tex"))
 
 # Sanity check with spline fitted growth parameters     ----
 # __________________________________________________________
 
-growth_parms_both <- read_csv(file = "output/growth_parameters_easylinear_h20.csv") |>
+growth_parms_both <- read_csv(file = here("output", "growth_parameters_easylinear_h20.csv")) |>
   select(maxOD, mumax) |>
   rename(maxOD_easylinear = maxOD, mumax_easylinear = mumax) |>
-  bind_cols(read_csv(file = "output/growth_parameters_spline.csv")) |>
+  bind_cols(read_csv(file = here("output", "growth_parameters_spline.csv"))) |>
   rename(maxOD_spline = maxOD, mumax_spline = mumax) |>
   filter(!is.na(mumax_easylinear) & !is.na(mumax_spline))
 
