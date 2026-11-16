@@ -206,7 +206,7 @@ plot_epistasis_relpars <- function(rel_parms, fit1, fit2, min1, max1, min2, max2
                      data = rel_parms,
                      size = 4,
                      fill = alpha("white", 0), 
-                     label.size = NA,
+                     linewidth = 0,
                      segment.color = NA) +
     theme(
       plot.title = element_text(size = 18),
@@ -254,7 +254,7 @@ plot_epistasis_abspars <- function(post_pred_1, post_pred_2,
                      data = abs_parms,
                      size = 4,
                      fill = alpha("white", 0), 
-                     label.size = NA,
+                     linewidth = 0,
                      segment.color = NA) +
     theme(
       plot.title = element_text(size = 18),
