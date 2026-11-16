@@ -971,7 +971,7 @@ for(v in vars) {
 # polish and save as .tex file:
 all_tables |>
   polish_posterior_tables() |>
-  writeLines(here("tables", "all_supp_tables.tex"))
+  writeLines(here("tables", "model_fit_tables.tex"))
 
 
 # Table for model comparisons                          ----
