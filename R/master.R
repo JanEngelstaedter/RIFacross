@@ -977,26 +977,6 @@ tab |>
   str_replace_all("TILDE", "$\\\\sim$") |>
   writeLines(here("tables", "comparison_table.tex"))
 
-# Sanity check with spline fitted growth parameters     ----
-# __________________________________________________________
-
-growth_parms_both <- read_csv(file = here("output", "growth_parameters_easylinear_h20.csv")) |>
-  select(maxOD, mumax) |>
-  rename(maxOD_easylinear = maxOD, mumax_easylinear = mumax) |>
-  bind_cols(read_csv(file = here("output", "growth_parameters_spline.csv"))) |>
-  rename(maxOD_spline = maxOD, mumax_spline = mumax) |>
-  filter(!is.na(mumax_easylinear) & !is.na(mumax_spline))
-
-ggplot(growth_parms_both) +
-  geom_point(aes(x = maxOD_easylinear, y = maxOD_spline), alpha = 0.5) +
-  theme_bw()
-cor(growth_parms_both$maxOD_easylinear, growth_parms_both$maxOD_spline)
-
-ggplot(growth_parms_both) +
-  geom_point(aes(x = mumax_easylinear, y = mumax_spline), col = "blue", alpha = 0.2) +
-  theme_bw()
-cor(growth_parms_both$mumax_easylinear, growth_parms_both$mumax_spline)
-
 # Session info                                          ----
 # __________________________________________________________
 # record R and package versions used to produce all outputs:
