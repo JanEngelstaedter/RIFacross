@@ -3,11 +3,13 @@
 
 here::i_am("R/master.R")
 library(here)
-library(tidyverse)
-library(grow96)
+library(tidyverse) 
+library(grow96) # available from github via pak::pak("janengelstaedter/grow96")
 library(varhandle)
 library(brms)
 options(brms.backend = "cmdstanr")
+# (Install using install.packages("cmdstanr", repos = c('https://stan-dev.r-universe.dev', getOption("repos"))))
+# or comment out to use rstan instead.)
 library(broom)
 library(tidybayes)
 library(ggrepel)
@@ -90,8 +92,7 @@ for(i in 1:nrow(projects)) {
 
 #add the last replicate of A. baylyi
 extra <- processODData(specPath = here("data", "A_baylyi_Ian", "specs_temp"), 
-                       dataPath = here("data", "A_baylyi_Ian", "OD_temp"), 
-                       filePrefix = "extra_") %>% 
+                       dataPath = here("data", "A_baylyi_Ian", "OD_temp")) %>% 
   blankODs(groups = "ONCtemp") %>% 
   filter(ONCtemp == "37") %>% 
   filter(!is.na(Strain)) %>% 
@@ -874,6 +875,8 @@ read_csv(here("output", "growth_parameters_easylinear_h20.csv")) |>
         table.placement = "H",
         size = "\\small\\renewcommand{\\arraystretch}{0.8}")
 
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
 
 # Tables for model fits                                 ----
 # __________________________________________________________
@@ -949,6 +952,8 @@ all_tables |>
   polish_posterior_tables() |>
   writeLines(here("tables", "model_fit_tables.tex"))
 
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
 
 # Table for model comparisons                          ----
 # __________________________________________________________
@@ -976,6 +981,9 @@ tab |>
   str_replace_all("R2\\\\_interaction", "$R\\^2_{\\\\text{interaction}}$") |>
   str_replace_all("TILDE", "$\\\\sim$") |>
   writeLines(here("tables", "comparison_table.tex"))
+
+#empty working environment to keep everything clean:
+rm.all.but("globsets")
 
 # Session info                                          ----
 # __________________________________________________________
