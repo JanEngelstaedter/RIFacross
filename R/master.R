@@ -93,9 +93,9 @@ for(i in 1:nrow(projects)) {
 #add the last replicate of A. baylyi
 extra <- processODData(specPath = here("data", "A_baylyi_Ian", "specs_temp"), 
                        dataPath = here("data", "A_baylyi_Ian", "OD_temp")) %>% 
-  blankODs(groups = "ONCtemp") %>% 
   filter(ONCtemp == "37") %>% 
   filter(!is.na(Strain)) %>% 
+  blankODs() %>% 
   filter(! Well %in% c("C6", "C7", "D7")) %>% #abnormal replicates
   filter(!(Well == "D6" & Time_h > 15)) %>%  #Seems like mutation at end
   select(-ONCtemp)
