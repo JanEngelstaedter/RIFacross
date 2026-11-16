@@ -37,6 +37,7 @@ The folder "output" contains the following files:
 * growth_parameters_easylinear_h20.csv: fitted growth parameters (maximum growth rate and maximum OD) for all growth assays, using the easylinear method (main method reported in article).
 * brms_fit_xxx.RData: five files containing all Bayesian model fits.
 * model_comparison.csv: table containing diagnostics for model comparisons
+* sessionInfo.txt: containing all details of the latest run of the master.R script. 
 
 The folder "plots" contains the four main figures of the article as well as Fig. S1 and an alternative to Fig. 4 showing a model fit without 3-way interactions.
 
