@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+title: "Data and code for the article 'Strong genotype-by-genotype and genotype-by-environment interactions exhibited by antimicrobial resistance mutations in the absence of drugs'"
+type: software
+authors:
+  - family-names: "Williams"
+    given-names: "Alicia H."
+    orcid: "https://orcid.org/0009-0006-8463-8416"
+    affiliation: "The University of Queensland"
+  - family-names: "Gooi"
+    given-names: "Ian"
+    orcid: "https://orcid.org/0000-0002-0965-3572"
+    affiliation: "The University of Queensland"
+  - family-names: "Boggan"
+    given-names: "Madelaine"
+    affiliation: "The University of Queensland"
+  - family-names: "Liu"
+    given-names: "Ziquing"
+    affiliation: "The University of Queensland"
+  - family-names: "Letten"
+    given-names: "Andrew D."
+    orcid: "https://orcid.org/0000-0001-6436-7942"
+    affiliation: "The University of Queensland"
+  - family-names: "Jan"
+    given-names: "Engelstädter"
+    orcid: "https://orcid.org/0000-0003-3340-918X"
+    affiliation: "The University of Queensland"
+repository-code: "https://github.com/your-org/your-repo"
+abstract: "This repository contains all the data and code necessary to reproduce the results of the article. "
+keywords:
+  - genotype-by-environment interactions
+  - epistasis
+  - rifampicin
+  - antimicrobial resistance
+  - antibiotic resistance
+  - fitness costs
+license: MIT
+version: "1.0.0"
+date-released: "2026-11-17"
