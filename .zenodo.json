@@ -42,22 +42,13 @@
     "antibiotic resistance",
     "fitness costs"
   ],
-  "license": {
-    "id": "MIT"
-  },
+  "license": "MIT",
   "related_identifiers": [
-    {
-      "identifier": "to be provided",
-      "relation": "isSupplementTo",
-      "resource_type": "publication-article",
-      "scheme": "doi"
-    },
     {
       "identifier": "https://github.com/JanEngelstaedter/RIFacross",
       "relation": "isSupplementTo",
       "scheme": "url"
     }
   ],
-  "language": "eng",
-  "access_right": "open"
+  "language": "eng"
 }
