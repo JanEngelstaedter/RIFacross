@@ -24,8 +24,8 @@ authors:
     given-names: "Engelstädter"
     orcid: "https://orcid.org/0000-0003-3340-918X"
     affiliation: "The University of Queensland"
-repository-code: "https://github.com/your-org/your-repo"
-abstract: "This repository contains all the data and code necessary to reproduce the results of the article. "
+repository-code: "https://github.com/JanEngelstaedter/RIFacross"
+abstract: "This repository contains all the data and code necessary to reproduce the results of the article."
 keywords:
   - genotype-by-environment interactions
   - epistasis
