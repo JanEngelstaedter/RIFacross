@@ -1,0 +1,63 @@
+{
+  "title": "Data and code for the article 'Strong genotype-by-genotype and genotype-by-environment interactions exhibited by antimicrobial resistance mutations in the absence of drugs'",
+  "description": "This repository contains all the data and code necessary to reproduce the results of the article.",
+  "resource_type": {
+    "type": "software"
+  },
+  "creators": [
+    {
+      "name": "Williams, Alicia H.",
+      "affiliation": "The University of Queensland",
+      "orcid": "0009-0006-8463-8416"
+    },
+    {
+      "name": "Gooi, Ian",
+      "affiliation": "The University of Queensland",
+      "orcid": "0000-0002-0965-3572"
+    },
+    {
+      "name": "Boggan, Maddelaine",
+      "affiliation": "The University of Queensland"
+    },
+    {
+      "name": "Liu, Ziquing",
+      "affiliation": "The University of Queensland",
+    },
+    {
+      "name": "Letten, Andrew D.",
+      "affiliation": "The University of Queensland",
+      "orcid": "0000-0001-6436-7942"
+    },
+    {
+      "name": "Engelstädter, Jan",
+      "affiliation": "The University of Queensland",
+      "orcid": "0000-0003-3340-918X"
+    }
+  ],
+  "keywords": [
+    "genotype-by-environment interactions",
+    "epistasis",
+    "rifampicin",
+    "antimicrobial resistance",
+    "antibiotic resistance",
+    "fitness costs"
+  ],
+  "license": {
+    "id": "MIT"
+  },
+  "related_identifiers": [
+    {
+      "identifier": "to be provided",
+      "relation": "isSupplementTo",
+      "resource_type": "publication-article",
+      "scheme": "doi"
+    },
+    {
+      "identifier": "https://github.com/JanEngelstaedter/RIFacross",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ],
+  "language": "eng",
+  "access_right": "open"
+}
