@@ -44,6 +44,7 @@ The folder "plots" contains the four main figures of the article as well as Fig.
 The folder "tables" contains the following three files, all including one or more tables in LaTex format:
 
 * mutations.tex: Table 1 from the main text, showing all mutants used in this study.
-* model_fit_tables.tex: Tables S1 through S14 in the ms, showing parameters estimates for all model fits. 
-* comparisons_table.tex: Table S15, showing diagnostics for model comparisons.
+* comparisons_table.tex: Table S1, showing diagnostics for model comparisons.
+* model_fit_tables.tex: Tables S2 through S15 in the ms, showing parameters estimates for all model fits. 
+
 
