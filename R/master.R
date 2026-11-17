@@ -881,6 +881,8 @@ rm.all.but("globsets")
 # Tables for model fits                                 ----
 # __________________________________________________________
 
+all_tables <- NULL
+
 # GxG models:
 load(here("output", "brms_fit_GxG_models.RData"))
 vars <- names(all_fits$fits)
@@ -900,7 +902,6 @@ for(v in vars) {
 }
 
 # GxE models:
-all_tables <- NULL
 load(here("output", "brms_fit_GxE_models.RData"))
 vars <- names(all_fits)
 for(v in vars) {
