@@ -881,6 +881,24 @@ rm.all.but("globsets")
 # Tables for model fits                                 ----
 # __________________________________________________________
 
+# GxG models:
+load(here("output", "brms_fit_GxG_models.RData"))
+vars <- names(all_fits$fits)
+for(v in vars) {
+  models <- names(all_fits$fits[[v]])
+  for(m in models) {
+    all_tables <- brms::posterior_summary(all_fits$fits[[v]][[m]], 
+                                          probs = c((1 - globsets$cred_int)/2, 0.5 + globsets$cred_int/2), 
+                                          central = FALSE) |>
+      xtable(caption = posterior_table_caption("GxG", v, m, formula(all_fits$fits[[v]][[m]])),
+             digits = c(0, 4, 4, 4, 4),
+             label = paste0("supptab:GxG_", v, "_", m)) |>
+      print(type = "latex", file = "") |>
+      capture.output() %>%
+      c(all_tables, rep("", 3), .)
+  }
+}
+
 # GxE models:
 all_tables <- NULL
 load(here("output", "brms_fit_GxE_models.RData"))
@@ -897,24 +915,6 @@ for(v in vars) {
     print(type = "latex", file = "") |>
     capture.output() %>%
     c(all_tables, rep("", 3), .)
-  }
-}
-
-# GxG models:
-load(here("output", "brms_fit_GxG_models.RData"))
-vars <- names(all_fits$fits)
-for(v in vars) {
-  models <- names(all_fits$fits[[v]])
-  for(m in models) {
-    all_tables <- brms::posterior_summary(all_fits$fits[[v]][[m]], 
-                            probs = c((1 - globsets$cred_int)/2, 0.5 + globsets$cred_int/2), 
-                            central = FALSE) |>
-      xtable(caption = posterior_table_caption("GxG", v, m, formula(all_fits$fits[[v]][[m]])),
-             digits = c(0, 4, 4, 4, 4),
-             label = paste0("supptab:GxG_", v, "_", m)) |>
-      print(type = "latex", file = "") |>
-      capture.output() %>%
-      c(all_tables, rep("", 3), .)
   }
 }
 
